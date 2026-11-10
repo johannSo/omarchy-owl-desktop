@@ -51,6 +51,8 @@ folder() {
     d=$(sed -n 's/^[[:space:]]*folder[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$STYLE" | head -1)
   fi
   d=${d:-~/.config/omarchy-widgets}
+  # A literal ~ (style.toml's folder, or the default) is your home.
+  # shellcheck disable=SC2088
   [[ $d == "~" || $d == "~/"* ]] && d=$HOME${d:1}
   echo "${d%/}"
 }
@@ -97,8 +99,8 @@ cmd_start() {
   else
     setsid -f quickshell -n -p "$APP" >/dev/null 2>&1 </dev/null
   fi
-  local i
-  for i in $(seq 1 50); do
+  local _
+  for _ in $(seq 1 50); do
     running && { echo "the desktop widgets are running: $(tilde "$DIR")"; return 0; }
     sleep 0.1
   done
@@ -160,7 +162,7 @@ case $cmd in
     f=""
     if (($#)); then f=$(relative "$1"); fi
     ipc arrange "$f" ;;
-  done) ipc done ;;
+  "done") ipc "done" ;;
   toggle) ipc toggle ;;
   list) ipc list ;;
   reload) ipc reload ;;
