@@ -23,7 +23,7 @@ set -euo pipefail
 REPO=${OWL_DESKTOP_REPO:-https://github.com/johannSo/omarchy-owl-desktop.git}
 BRANCH=${OWL_DESKTOP_BRANCH:-main}
 DEST=${OWL_DESKTOP_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/owl-desktop}
-PACKAGES=(quickshell curl jq perl inotify-tools git)
+PACKAGES=(quickshell qt6-imageformats curl jq perl inotify-tools git)
 
 say() { printf '\033[1m%s\033[0m\n' "$*"; }
 die() { echo "install.sh: $*" >&2; exit 1; }

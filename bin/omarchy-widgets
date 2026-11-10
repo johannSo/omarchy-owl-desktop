@@ -15,6 +15,9 @@
 #   omarchy-widgets share <file>          the widget as a link, and a QR code to scan
 #   omarchy-widgets import <link>         add a widget someone shared
 #
+# install and remove take --faces for a face from the store's faces, kept
+# apart from the widgets as the phone keeps them (installed-faces.json).
+#
 # install, packages and publish show what they will do and ask first; --yes
 # skips that. --sha256=<hex> makes install refuse unless the store still lists
 # that file: the app passes the one it showed, so --yes installs only what was
@@ -23,8 +26,9 @@
 # may ask questions.
 #
 # Widgets live in ~/.config/omarchy-widgets (or $OWL_WIDGETS). A store widget
-# is installed as market-<author>-<name>.owl, the name the phone gives it, and
-# only when its SHA-256 matches the reviewed file the store's index lists.
+# is installed as market-<author>-<name>.owl (a face market-face-<author>-<name>.owl),
+# the names the phone gives them, and only when its SHA-256 matches the reviewed
+# file the store's index lists. remove moves the file to .removed/ there.
 #
 # Exit 0 done, 1 failed, 2 usage.
 
@@ -48,6 +52,7 @@ need() { command -v "$1" >/dev/null 2>&1 || die "$1 is not installed${2:+ ($2)}"
 
 yes=0
 terminal=0
+faces=0
 png=
 approved=
 args=()
@@ -55,12 +60,20 @@ for a in "$@"; do
   case $a in
     --yes | -y) yes=1 ;;
     --terminal) terminal=1 ;;
+    --faces) faces=1 ;;
     --png=*) png=${a#--png=} ;;
     --sha256=*) approved=${a#--sha256=} ;;
     *) args+=("$a") ;;
   esac
 done
 set -- "${args[@]+"${args[@]}"}"
+
+# What the store holds: widgets (index.json), or with --faces its faces.
+if ((faces)); then
+  KIND=face KEY=faces CATALOG=faces.json PREFIX=market-face- INSTALLED=$STATE/installed-faces.json
+else
+  KIND=widget KEY=widgets CATALOG=index.json PREFIX=market-
+fi
 
 confirm() {
   ((yes)) && return 0
@@ -93,7 +106,7 @@ valid_id() { [[ $1 =~ ^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$ ]] || die "not a s
 catalog() {
   need curl
   need jq
-  curl -fsSL --max-time 20 "$STORE/index.json" || die "can't reach the store at $STORE"
+  curl -fsSL --max-time 20 "$STORE/$CATALOG" || die "can't reach the store at $STORE"
 }
 
 records() { [[ -s $INSTALLED ]] && cat "$INSTALLED" || echo '{}'; }
@@ -139,13 +152,13 @@ cmd_install() {
   valid_id "$id"
   local index entry
   index=$(catalog)
-  entry=$(jq -ce --arg id "$id" '.widgets[] | select(.id == $id)' <<<"$index") || die "no widget $id in the store"
+  entry=$(jq -ce --arg key "$KEY" --arg id "$id" '.[$key][] | select(.id == $id)' <<<"$index") || die "no $KIND $id in the store"
 
   local version path sha
   version=$(jq -r .version <<<"$entry")
   path=$(jq -r .path <<<"$entry")
   sha=$(jq -r .sha256 <<<"$entry")
-  [[ $path =~ ^widgets/[a-z0-9/-]+\.owl$ ]] || die "the store lists an odd path for $id: $path"
+  [[ $path =~ ^$KEY/[a-z0-9/-]+\.owl$ ]] || die "the store lists an odd path for $id: $path"
   [[ -z $approved || $approved == "$sha" ]] || die "$id changed in the store since you read it; read it again before you install"
 
   if ! ((yes)); then
@@ -160,7 +173,7 @@ cmd_install() {
 
   local file
   file=$(records | jq -r --arg id "$id" '.[$id].file // empty')
-  [[ -n $file ]] || file="market-${id%%/*}-${id#*/}.owl"
+  [[ -n $file ]] || file="$PREFIX${id%%/*}-${id#*/}.owl"
 
   mkdir -p "$DIR"
   local tmp
@@ -173,7 +186,7 @@ cmd_install() {
   trap - EXIT
 
   records | jq --arg id "$id" --arg file "$file" --argjson e "$entry" \
-    '.[$id] = { file: $file, version: $e.version, commands: ($e.commands // []), requires: ($e.requires // {}) }' | save_records
+    '.[$id] = { file: $file, version: $e.version, sha256: $e.sha256, commands: ($e.commands // []), requires: ($e.requires // {}) }' | save_records
 
   echo "installed $DIR/$file"
   local missing
@@ -221,9 +234,15 @@ cmd_remove() {
   valid_id "$id"
   file=$(records | jq -r --arg id "$id" '.[$id].file // empty')
   [[ -n $file ]] || die "$id was not installed from the store"
-  rm -f "$DIR/$file"
+  # Into .removed/, as the phone does, where the desktop doesn't look.
+  if [[ -e $DIR/$file ]]; then
+    local to=$DIR/.removed/${file##*/}
+    mkdir -p "$DIR/.removed"
+    [[ -e $to ]] && to=$DIR/.removed/$(date +%Y%m%d-%H%M%S)-${file##*/}
+    mv "$DIR/$file" "$to"
+  fi
   records | jq --arg id "$id" 'del(.[$id])' | save_records
-  echo "removed $DIR/$file"
+  echo "removed $DIR/$file (it's in $(tilde "$DIR")/.removed/)"
 }
 
 cmd_packages() {

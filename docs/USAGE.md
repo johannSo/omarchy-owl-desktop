@@ -58,7 +58,38 @@ widget "uptime" {
 The language is in `owl/LANGUAGE.md`, and in full in Omalauncher's
 `app/src/main/assets/widgets/docs/`.
 
-From the store and with your agent, as in Omalauncher's desktop app:
+## The store
+
+**Store** in the arranging bar, `owl-desktop store`, or a widget's
+`launcher("store")` opens the store as the phone has it: every reviewed widget
+and face of [SimonSchubert/omarchy-widgets](https://github.com/SimonSchubert/omarchy-widgets),
+in the launcher's panel over the desktop, drawn in your theme with previews
+drawn in it.
+
+- **widgets | faces** in the header switches between them; ↻ loads the store
+  again.
+- Search, or pick a tab: all, new, a category, or installed (with how many
+  have an update).
+- A card's line says what it is, `✓ installed`, `update available`, or that it
+  needs a newer runtime. Click one, and its page beside the grid shows what it
+  installs and the commands it runs before you add it.
+- **add to your desktop** puts a widget at the first free place on this
+  monitor and closes the store; **add as a face** shows a face behind your
+  widgets. Either way it's installed only if the download is the reviewed
+  file the page showed.
+- An installed one's page has **update** (and says when updating would replace
+  your changes, or when the update runs something new), **edit** and
+  **share** (your agent, as below), **remove** (asked first; the file goes to
+  `.removed/` in the widget folder), and **put it back** or **show it here**
+  when it's off the desktop.
+- Keys: type to search; Tab goes to the grid, the arrows through it, Tab again
+  to the page's actions, Enter or Space presses one; Escape steps back, then
+  closes.
+
+`owl-desktop store <author/name>` opens one's page. A store widget's bar while
+arranging has **Store page** too.
+
+From a terminal, and with your agent, as in Omalauncher's desktop app:
 
 ```sh
 owl-desktop install simonschubert/today   # a reviewed widget, after showing what it runs
@@ -77,7 +108,7 @@ With the keyboard: arrows move the selected tile, Shift+arrows resize it, Tab
 picks the next one, Delete takes it off the desktop. The bar at the bottom puts
 back what you took off (or what had no room left), and has Create, Store,
 Style and Folder. A widget's own bar has Edit, Share, Take off (Uninstall for
-one from the store) and, with more monitors, Next screen.
+one from the store, with Store page) and, with more monitors, Next screen.
 
 `owl-desktop arrange` starts arranging on the focused monitor without a
 click, and `owl-desktop done` ends it. You may want a key for it in
@@ -117,7 +148,8 @@ in particular:
 - `terminal()` opens Omarchy's terminal, `app()` starts the command through
   uwsm, `ask()` opens Omarchy's default agent with the prompt, and
   `launcher()` opens Omarchy's theme menu (`themes`), app launcher (`drawer`),
-  agent setup (`agents`), this style file (`style`, `settings`) or the store.
+  agent setup (`agents`), this style file (`style`, `settings`) or the store
+  (`store`, the panel above).
 - `media()` controls the MPRIS player, `dnd()` Omarchy's do-not-disturb.
 - `frost` draws only the node's background: the wallpaper is another
   program's surface, which a widget can't blur.
@@ -137,7 +169,8 @@ in particular:
 | `~/.config/owl-desktop/style.toml` | how they look |
 | `~/.local/state/owl-desktop/layout.json` | where each one is, per monitor |
 | `~/.local/state/owl-desktop/<file>.json` | what a widget persists (`.secrets.json`: its secrets, yours only) |
-| `~/.local/state/omarchy-widgets/installed.json` | what came from the store |
+| `~/.local/state/omarchy-widgets/installed.json`, `installed-faces.json` | what came from the store |
+| `~/.config/omarchy-widgets/.removed/` | what you removed |
 
 To remove it, run `install.sh --uninstall`. It stops the widgets, takes them
 out of autostart, and removes `~/.local/bin/owl-desktop` and the clone
@@ -157,4 +190,5 @@ out of autostart, and removes `~/.local/bin/owl-desktop` and the clone
 | `owl/` | the OWL runtime (`owl/PATCHES.md`) |
 | `bin/owl-desktop` | the command |
 | `install.sh`, `update.sh` | install it, update it (`owl-desktop update`), `install.sh --uninstall` |
-| `bin/omarchy-widgets`, `starter/` | Omalauncher's desktop app's store command and starter widgets (MIT) |
+| `StoreWindow.qml`, `StoreUi.qml`, `Store.js` | the store; `node test/store.test.mjs` |
+| `bin/omarchy-widgets`, `starter/` | Omalauncher's desktop app's store command and starter widgets (MIT, `bin/PATCHES.md`) |

@@ -20,13 +20,15 @@ jobs:
           pacman-key --recv-keys "$key" --keyserver hkps://keyserver.ubuntu.com
           pacman-key --lsign-key "$key"
           sed -i 's|^\[core\]$|[omarchy]\nServer = https://pkgs.omarchy.org/stable/$arch\n\n[core]|' /etc/pacman.conf
-          pacman -Syu --noconfirm --needed git nodejs quickshell shellcheck curl jq perl inotify-tools
+          pacman -Syu --noconfirm --needed git nodejs quickshell qt6-imageformats shellcheck curl jq perl inotify-tools
           pacman -Q quickshell
 
       - uses: actions/checkout@v4
 
-      - name: Layout tests
-        run: node test/layout.test.mjs
+      - name: Layout and store tests
+        run: |
+          node test/layout.test.mjs
+          node test/store.test.mjs
 
       # Any warning fails, but two: var in a block (style), and Quickshell's
       # PanelWindow, which qmllint takes for the uncreatable interface in

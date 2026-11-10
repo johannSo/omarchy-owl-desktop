@@ -35,6 +35,8 @@ ShellRoot {
   readonly property string appDir: shell.localPath(Qt.resolvedUrl("."))
   readonly property string bin: shell.appDir + "/bin/omarchy-widgets"
   readonly property string storeUrl: "https://github.com/SimonSchubert/omarchy-widgets"
+  // Where the store's CI publishes its catalogs and reviewed files.
+  readonly property string storeBase: (Quickshell.env("OMARCHY_WIDGETS_STORE") || "https://simonschubert.github.io/omarchy-widgets").replace(/\/+$/, "")
   readonly property string dir: {
     var d = Quickshell.env("OWL_WIDGETS") || shell.style.folder || "~/.config/omarchy-widgets"
     if (d === "~" || d.indexOf("~/") === 0) d = shell.home + d.slice(1)
@@ -84,7 +86,50 @@ ShellRoot {
     watchChanges: true
     printErrors: false
     onFileChanged: { reload(); fontProc.running = true }
-    onLoaded: shell.palette = OwlJs.themeFromToml(text())
+    onLoaded: {
+      shell.palette = OwlJs.themeFromToml(text())
+      var named = {}
+      text().split("\n").forEach(function(line) {
+        var m = /^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/.exec(line)
+        if (m) named[m[1]] = m[2]
+      })
+      shell.themeNamed = named
+    }
+  }
+
+  // The theme's colors by colors.toml's names, and the launcher's own palette
+  // for its screens made of them (Theme.kt's ThemePalette): the store's.
+  property var themeNamed: ({})
+  readonly property var phone: {
+    var n = shell.themeNamed
+    var c = function(k, f) { return Qt.color(n[k] || f) }
+    var bg = c("background", "#1a1b26"), surface = c("lighter_background", "#24283b"), fg = c("foreground", "#c0caf5")
+    var muted = c("dark_foreground", "#565f89")
+    // Subtitles sit on the surface: a theme whose dark_foreground is its
+    // lighter_background gets one between the foreground and the background.
+    if (shell.contrast(muted, surface) < 1.2) muted = Qt.rgba((fg.r + bg.r) / 2, (fg.g + bg.g) / 2, (fg.b + bg.b) / 2, 1)
+    return {
+      background: bg, surface: surface, foreground: fg, muted: muted, overlay: Qt.rgba(bg.r, bg.g, bg.b, 0.9),
+      accent: c("accent", "#7aa2f7"), border: c("muted", "#414868"), red: c("red", "#f7768e"), green: c("green", "#9ece6a")
+    }
+  }
+  function contrast(a, b) {
+    var lum = function(q) {
+      var ch = function(v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
+      return 0.2126 * ch(q.r) + 0.7152 * ch(q.g) + 0.0722 * ch(q.b)
+    }
+    var x = lum(a), y = lum(b)
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+  }
+
+  // The theme's name, for the store's previews drawn in it.
+  property string themeName: ""
+  FileView {
+    path: shell.stateHome + "/omarchy/current/theme.name"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: shell.themeName = text().trim()
   }
 
   function ink(name) {
@@ -150,7 +195,7 @@ ShellRoot {
         var route = { themes: "theme", drawer: "apps", agents: "setup.default.agent" }[s(0)]
         if (route) return Quickshell.execDetached(["bash", "-c", "command -v omarchy-menu >/dev/null && exec omarchy-menu summon \"$1\"", "launcher", route])
         if (s(0) === "style" || s(0) === "settings") return shell.editStyle()
-        if (s(0) === "store") return Quickshell.execDetached(["xdg-open", shell.storeUrl])
+        if (s(0) === "store") return shell.openStore("", "")
         if (s(0).indexOf("page:") === 0) return
         return widget.report("launcher(\"" + s(0) + "\") opens a screen of the Android launcher's that the desktop has no counterpart for")
       }
@@ -280,7 +325,7 @@ ShellRoot {
     for (var i = 0; i < shell.files.length; i++) {
       var f = shell.files[i]
       if (shell.arrivals[f]) next[f] = shell.arrivals[f]
-      else if (!Layout.savedScreen(shell.layout, f)) { next[f] = shell.focusedScreen; changed = true }
+      else if (!Layout.savedScreen(shell.layout, f)) { next[f] = shell.expected[f] || shell.focusedScreen; changed = true }
     }
     if (changed || Object.keys(next).length !== Object.keys(shell.arrivals).length) shell.arrivals = next
   }
@@ -293,6 +338,36 @@ ShellRoot {
     var arrived = shell.arrivals[file]
     if (!saved && arrived && shell.screenNames.indexOf(arrived) >= 0) return arrived
     return shell.screenNames[0] || ""
+  }
+
+  // Where a file not there yet goes once it is: the store's monitor, for one
+  // installed from it.
+  property var expected: ({})
+  function expectArrival(file, screen) {
+    var next = Object.assign({}, shell.expected)
+    next[file] = screen
+    shell.expected = next
+  }
+
+  // Faces to show on a monitor once they're placed there, in place of the face
+  // showing: one added from the store, or its "show it here".
+  property var reveal: ({})
+  function revealFace(file, screen) {
+    if (shell.files.indexOf(file) >= 0 && shell.screenOf(file) !== screen) {
+      var arrivals = Object.assign({}, shell.arrivals)
+      arrivals[file] = screen
+      shell.arrivals = arrivals
+      shell.layout = Layout.without(shell.layout, file)
+      if (layoutFile.path) layoutFile.setText(JSON.stringify(shell.layout, null, 2) + "\n")
+    }
+    var next = Object.assign({}, shell.reveal)
+    next[file] = screen
+    shell.reveal = next
+  }
+  function revealed(file) {
+    var next = Object.assign({}, shell.reveal)
+    delete next[file]
+    shell.reveal = next
   }
 
   // Sends a widget to the next monitor, where it takes the first free place.
@@ -320,9 +395,31 @@ ShellRoot {
     onLoaded: { try { shell.records = JSON.parse(text()) || {} } catch (e) { shell.records = {} } }
     onLoadFailed: shell.records = {}
   }
+  // Faces, which the phone keeps apart: an id may be a widget's and a face's.
+  property var faceRecords: ({})
+  FileView {
+    path: shell.stateHome + "/omarchy-widgets/installed-faces.json"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: { try { shell.faceRecords = JSON.parse(text()) || {} } catch (e) { shell.faceRecords = {} } }
+    onLoadFailed: shell.faceRecords = {}
+  }
+  // The starter widgets' records, with the SHA-256 of each file as it came.
+  property var starterRecords: ({})
+  FileView {
+    path: shell.appDir + "/starter/installed.json"
+    printErrors: false
+    onLoaded: { try { shell.starterRecords = JSON.parse(text()) || {} } catch (e) { shell.starterRecords = {} } }
+  }
   function storeIdFor(file) {
     for (var id in shell.records) if (shell.records[id].file === file) return id
+    for (var fid in shell.faceRecords) if (shell.faceRecords[fid].file === file) return fid
     return ""
+  }
+  function storeKindFor(file) {
+    for (var fid in shell.faceRecords) if (shell.faceRecords[fid].file === file) return "face"
+    return "widget"
   }
 
   // ------------------------------------------------------------ commands
@@ -358,15 +455,31 @@ ShellRoot {
   Timer { id: messageTimer; interval: 8000; onTriggered: shell.message = "" }
 
   // The omarchy-widgets command, for the store and your agent, as Omalauncher's
-  // desktop app runs it; then shows what it said.
-  function widgets(args, done) {
+  // desktop app runs it; then shows what it said, unless `quiet` (the store
+  // says it on the page). done(code, stdout, stderr).
+  function widgets(args, done, quiet) {
     shell.run(["env", "OWL_WIDGETS=" + shell.dir, "OMARCHY_WIDGETS_APP=" + shell.appDir, shell.bin].concat(args), function(code, out, err) {
-      if (code !== 0) shell.say(err.replace(/^omarchy-widgets: /, "").trim() || "omarchy-widgets " + args[0] + " failed", true)
-      else if (out.trim()) shell.say(out.trim().split("\n").pop())
+      if (code !== 0 && !quiet) shell.say(err.replace(/^omarchy-widgets: /, "").trim() || "omarchy-widgets " + args[0] + " failed", true)
+      else if (code === 0 && out.trim()) shell.say(out.trim().split("\n").pop())
       shell.rescan()
-      if (done) done(code)
+      if (done) done(code, out, err)
     })
   }
+
+  // ------------------------------------------------------------ the store
+
+  // The monitor the store is open on, "" when it's closed; what it opens on.
+  property string storeOn: ""
+  property string storePick: ""
+  property string storeKind: ""
+  function openStore(id, kind) {
+    shell.storePick = id || ""
+    shell.storeKind = kind || ""
+    var on = shell.arrangingOn || shell.focusedScreen
+    if (shell.storeOn === on) { shell.storeOn = ""; }
+    shell.storeOn = on
+  }
+  function closeStore() { shell.storeOn = "" }
 
   function create() { shell.widgets(["new"]) }
 
@@ -463,5 +576,7 @@ ShellRoot {
       return d && d.openScreen(file) ? "ok" : "no such widget, or it has no screen { }"
     }
     function style(): string { shell.editStyle(); return "ok" }
+    // The store, or the page of one in it (author/name, a widget's or a face's).
+    function store(id: string): string { shell.openStore(id, ""); return shell.storeOn ? "ok" : "no monitor" }
   }
 }

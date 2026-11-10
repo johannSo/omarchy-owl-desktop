@@ -137,6 +137,12 @@ PanelWindow {
       }
       var r = Layout.settle(win.cells, win.files, sizes, win.columns, win.rows)
       if (r.placed.length) win.save(r.cells, r.placed.filter(function(f) { return !win.isVisitor(f) }))
+      // A face added from the store shows in place of the one showing.
+      for (var f in win.app.reveal) {
+        if (win.app.reveal[f] !== win.name || !Layout.isFace(win.cells[f])) continue
+        if (win.cells[f].hidden) win.showTile(f)
+        win.app.revealed(f)
+      }
     }
   }
   onFilesChanged: settleLater.restart()
@@ -145,6 +151,7 @@ PanelWindow {
   Connections {
     target: win.app
     function onReadyChanged() { settleLater.restart() }
+    function onRevealChanged() { if (Object.keys(win.app.reveal).length) settleLater.restart() }
   }
 
   function tileFor(file) {
@@ -256,7 +263,7 @@ PanelWindow {
   function uninstall() {
     var id = win.selectedStoreId
     if (!id) return
-    win.app.widgets(["remove", "--yes", id])
+    win.app.widgets(win.app.storeKindFor(win.selected) === "face" ? ["remove", "--yes", "--faces", id] : ["remove", "--yes", id])
     win.selected = ""
   }
 
@@ -450,6 +457,7 @@ PanelWindow {
         Btn { app: win.app; text: "Edit"; onClicked: win.edit() }
         Btn { app: win.app; text: "Share"; onClicked: win.share() }
         Btn { app: win.app; visible: Quickshell.screens.length > 1; text: "Next screen"; onClicked: { var f = win.selected; win.selected = ""; win.app.moveToNextScreen(f) } }
+        Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "Store page"; onClicked: win.app.openStore(win.selectedStoreId, win.app.storeKindFor(win.selected)) }
         Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "Uninstall"; onClicked: win.uninstall() }
         Btn { app: win.app; visible: win.selectedStoreId === ""; text: "Take off"; onClicked: win.hideTile(win.selected) }
       }
@@ -475,7 +483,7 @@ PanelWindow {
         anchors.centerIn: parent
         spacing: 6
         Btn { app: win.app; text: "Create"; onClicked: win.app.create() }
-        Btn { app: win.app; text: "Store"; onClicked: Quickshell.execDetached(["xdg-open", win.app.storeUrl]) }
+        Btn { app: win.app; text: "Store"; onClicked: win.app.openStore("", "") }
         Btn { app: win.app; text: "Style"; onClicked: win.app.editStyle() }
         Btn { app: win.app; text: "Folder"; onClicked: Quickshell.execDetached(["xdg-open", win.app.dir]) }
         Repeater {

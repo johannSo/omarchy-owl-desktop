@@ -1,8 +1,8 @@
 import QtQuick
 import Quickshell
 
-// One monitor: its desktop of widgets, and the panel a widget's screen { }
-// opens in over everything there.
+// One monitor: its desktop of widgets, the panel a widget's screen { } opens
+// in over everything there, and the store's.
 Scope {
   id: root
 
@@ -10,10 +10,10 @@ Scope {
   required property var app
   required property var host
 
-  readonly property alias desk: desk
+  readonly property alias desk: deskWindow
 
   DesktopWindow {
-    id: desk
+    id: deskWindow
     screen: root.modelData
     app: root.app
     host: root.host
@@ -22,7 +22,14 @@ Scope {
   ScreenWindow {
     screen: root.modelData
     app: root.app
-    widget: desk.screenWidget
-    dp: desk.dp
+    widget: deskWindow.screenWidget
+    dp: deskWindow.dp
+  }
+
+  StoreWindow {
+    screen: root.modelData
+    app: root.app
+    desk: deskWindow
+    dp: deskWindow.dp
   }
 }

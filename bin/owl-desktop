@@ -8,6 +8,7 @@
 #   owl-desktop arrange [<file>]       arrange the desktop, as holding a widget does (done, toggle)
 #   owl-desktop list                   the widgets: where they are, and what's wrong with them
 #   owl-desktop screen <file>          open a widget's screen { }
+#   owl-desktop store [<author/name>]  the store, or the page of a widget or face in it
 #   owl-desktop reload                 read the folder, the style and every widget again
 #   owl-desktop style                  edit ~/.config/owl-desktop/style.toml
 #   owl-desktop logs                   what the desktop has logged
@@ -40,7 +41,7 @@ STYLE=$CONFIG/style.toml
 AUTOSTART=${XDG_CONFIG_HOME:-$HOME/.config}/hypr/autostart.lua
 
 die() { echo "$me: $*" >&2; exit 1; }
-usage() { sed -n '5,31p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '5,32p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 is not installed${2:+ ($2)}"; }
 tilde() { [[ $1 == "$HOME"* ]] && echo "~${1#"$HOME"}" || echo "$1"; }
 
@@ -176,6 +177,9 @@ case $cmd in
     (($# == 1)) || usage
     f=$(relative "$1")
     ipc screen "$f" ;;
+  store)
+    (($# <= 1)) || usage
+    ipc store "${1:-}" ;;
   style)
     mkdir -p "$CONFIG"
     if running; then ipc style; else exec "${VISUAL:-${EDITOR:-xdg-open}}" "$STYLE"; fi ;;

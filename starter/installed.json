@@ -5,7 +5,8 @@
     "commands": [
       "http GET (a URL built from widget values)"
     ],
-    "requires": {}
+    "requires": {},
+    "sha256": "9e223e82ca82123ca2f0db170de6761f462eb2d6617edb661dd44899aa7ed0db"
   },
   "simonschubert/fetch": {
     "file": "market-simonschubert-fetch.owl",
@@ -14,12 +15,14 @@
       "if Linux is installed: . /etc/os-release\nprintf '{\"os\":\"%s\",\"pkgs\":%s,\"explicit\":%s,\"shell\":\"%s\",\"upgraded\":\"%s\"}' \\\n  \"$PRETTY_NAME\" \"$(pacman -Qq | wc -l)\" \"$(pacman -Qqe | wc -l)\" \\\n  \"$(basename \"$SHELL\") $(bash --version | head -1 | awk '{print $4}' | cut -d'(' -f1)\" \\\n  \"$(grep -a 'starting full system upgrade' /var/log/pacman.log 2>/dev/null | tail -1 | cut -c2-11)\"",
       "command -v fastfetch >/dev/null && fastfetch || echo 'fastfetch is not installed: pacman -S fastfetch'"
     ],
-    "requires": {}
+    "requires": {},
+    "sha256": "14d0c261ac4a969ede0151622b934635d3721de8ea98ab1d17294785515f69cb"
   },
   "simonschubert/koi-pond": {
     "file": "market-simonschubert-koi-pond.owl",
     "version": "1.2",
     "commands": [],
-    "requires": {}
+    "requires": {},
+    "sha256": "760450c94aeca6b999affe00f2d37d109dc4c5af48ddfae8ae8b355f1416a1fb"
   }
 }

@@ -1,4 +1,4 @@
-# omarchy-owl-desktop
+# Omalauncher Desktop
 
 - Puts [Omalauncher](https://github.com/SimonSchubert/omalauncher)'s OWL widgets on your [Omarchy](https://omarchy.org) desktop: over the wallpaper, under the windows, on the launcher's home-screen grid and in your current theme.
 - Widgets are `.owl` files in `~/.config/omarchy-widgets`, drawn by the official [OWL runtime for Quickshell](https://github.com/SimonSchubert/omarchy-widgets/tree/main/runtimes/quickshell), so a widget that works on the phone works here unchanged.
@@ -17,12 +17,12 @@ To update, run `owl-desktop update` (or `update.sh`). It pulls the latest versio
 
 To uninstall, pass `--uninstall` to `install.sh`. It stops the widgets, takes them out of autostart, and removes the command and the clone. Your widgets, style and layout stay.
 
-Hold or right-click a widget to arrange the desktop. `owl-desktop help` lists the commands, and [docs/USAGE.md](docs/USAGE.md) explains everything else.
+Hold or right-click a widget to arrange the desktop, and press **Store** there (or run `owl-desktop store`) to get widgets and faces, update them, edit or remove them, as in Omalauncher's store. `owl-desktop help` lists the commands, and [docs/USAGE.md](docs/USAGE.md) explains everything else.
 
 ## How to contribute
 
 - Open an issue or a pull request. Run your checkout in the foreground with `./bin/owl-desktop run` to see its log.
-- Before a pull request, run `node test/layout.test.mjs` and `bash test/install.test.sh`. CI runs both, plus qmllint and shellcheck (see `.github/workflows/ci.yml` for the exact commands).
+- Before a pull request, run `node test/layout.test.mjs`, `node test/store.test.mjs` and `bash test/install.test.sh`. CI runs both, plus qmllint and shellcheck (see `.github/workflows/ci.yml` for the exact commands).
 - `owl/` is the upstream runtime, vendored. Fix bugs in it at [SimonSchubert/omarchy-widgets](https://github.com/SimonSchubert/omarchy-widgets), and list any local change in `owl/PATCHES.md`.
 - Send widgets to the store with `owl-desktop publish <file>`, not to this repo.
 
@@ -33,6 +33,7 @@ Hold or right-click a widget to arrange the desktop. `owl-desktop help` lists th
 - [x] Check that clicks between tiles still reach the wallpaper (double-click opens the picker).
 - [x] Check that widgets pause behind tiled windows and that popups take input.
 - [ ] Test with more than one monitor: per-monitor layouts and Next screen.
+- [ ] Check the store on a narrow screen (a high `desktop.scale`), where a page takes the grid's place.
 - [x] Add `install.sh --uninstall`.
 - [x] Add CI that runs the tests, qmllint and shellcheck.
 - [x] Add a screenshot to this README.
