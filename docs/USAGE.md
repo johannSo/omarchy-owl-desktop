@@ -139,9 +139,10 @@ in particular:
 | `~/.local/state/owl-desktop/<file>.json` | what a widget persists (`.secrets.json`: its secrets, yours only) |
 | `~/.local/state/omarchy-widgets/installed.json` | what came from the store |
 
-To remove it: `owl-desktop autostart off`, `owl-desktop stop`, and delete
-`~/.local/bin/owl-desktop`, the clone (`~/.local/share/owl-desktop`) and
-`~/.local/state/owl-desktop`. Your widgets stay.
+To remove it, run `install.sh --uninstall`. It stops the widgets, takes them
+out of autostart, and removes `~/.local/bin/owl-desktop` and the clone
+(`~/.local/share/owl-desktop`). Your widgets, style and
+`~/.local/state/owl-desktop` stay.
 
 ## Layout of the repository
 
@@ -152,6 +153,7 @@ To remove it: `owl-desktop autostart off`, `owl-desktop stop`, and delete
 | `Tile.qml` | one widget, framed as on the phone |
 | `ScreenWindow.qml` | a widget's `screen { }` |
 | `Layout.js`, `Style.js` | where tiles go, and style.toml; `node test/layout.test.mjs` |
+| `test/` | `node test/layout.test.mjs`, `bash test/install.test.sh`; CI runs them with qmllint and shellcheck |
 | `owl/` | the OWL runtime (`owl/PATCHES.md`) |
 | `bin/owl-desktop` | the command |
 | `install.sh` | installs and updates it |

@@ -120,7 +120,7 @@ ShellRoot {
   // ------------------------------------------------------------ host
 
   Owl.OwlHost {
-    id: host
+    id: owlHost
     monoFamily: shell.font
     iconFamily: shell.font
     stateDir: shell.stateDir
@@ -154,7 +154,7 @@ ShellRoot {
         if (s(0).indexOf("page:") === 0) return
         return widget.report("launcher(\"" + s(0) + "\") opens a screen of the Android launcher's that the desktop has no counterpart for")
       }
-      host.defaultAct(widget, name, a)
+      owlHost.defaultAct(widget, name, a)
     }
 
     // What's playing, through MPRIS itself: the player the media source reads.
@@ -329,8 +329,7 @@ ShellRoot {
 
   // Runs a command; then(code, stdout, stderr).
   function run(command, then) {
-    var p = runner.createObject(shell, { command: command })
-    p.then = then || null
+    var p = runner.createObject(shell, { command: command, then: then || null }) as Process
     p.running = true
   }
   Component {
@@ -415,7 +414,7 @@ ShellRoot {
     model: Quickshell.screens
     delegate: Desktop {
       app: shell
-      host: host
+      host: owlHost
     }
   }
 

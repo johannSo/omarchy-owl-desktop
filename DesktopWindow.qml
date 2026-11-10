@@ -4,7 +4,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
-import "owl/Owl.js" as OwlJs
 import "Layout.js" as Layout
 
 // One monitor's desktop: its widgets on Omalauncher's home-screen grid, over
@@ -52,7 +51,7 @@ PanelWindow {
   readonly property var monitor: win.screen ? Hyprland.monitorFor(win.screen) : null
   property int hyprRevision: 0
   readonly property bool covered: {
-    win.hyprRevision
+    void win.hyprRevision
     var ws = win.monitor ? win.monitor.activeWorkspace : null
     if (!ws) return false
     var windows = ws.toplevels ? ws.toplevels.values : []
@@ -89,8 +88,8 @@ PanelWindow {
   // The widgets that live on this monitor.
   readonly property var files: {
     var all = win.app.files, out = []
-    win.app.layout
-    win.app.arrivals
+    void win.app.layout
+    void win.app.arrivals
     for (var i = 0; i < all.length; i++) if (win.app.screenOf(all[i]) === win.name) out.push(all[i])
     return out
   }
@@ -133,7 +132,7 @@ PanelWindow {
       if (!win.app.ready || win.width <= 0 || win.height <= 0) return
       var sizes = {}
       for (var i = 0; i < tiles.count; i++) {
-        var t = tiles.itemAt(i)
+        var t = tiles.itemAt(i) as Tile
         if (t && (t.owl.program || t.owl.error)) sizes[t.file] = { size: t.owl.size, face: t.owl.isFace }
       }
       var r = Layout.settle(win.cells, win.files, sizes, win.columns, win.rows)
@@ -150,7 +149,7 @@ PanelWindow {
 
   function tileFor(file) {
     for (var i = 0; i < tiles.count; i++) {
-      var t = tiles.itemAt(i)
+      var t = tiles.itemAt(i) as Tile
       if (t && t.file === file) return t
     }
     return null
@@ -158,7 +157,7 @@ PanelWindow {
 
   function reloadWidgets() {
     for (var i = 0; i < tiles.count; i++) {
-      var t = tiles.itemAt(i)
+      var t = tiles.itemAt(i) as Tile
       if (t) t.owl.load()
     }
   }
@@ -166,7 +165,7 @@ PanelWindow {
   function describe() {
     var out = []
     for (var i = 0; i < tiles.count; i++) {
-      var t = tiles.itemAt(i)
+      var t = tiles.itemAt(i) as Tile
       if (t) out.push({ file: t.file, name: t.owl.name, monitor: win.name, cell: win.cells[t.file] || null, face: t.owl.isFace,
                         running: t.owl.active, error: t.owl.error || null, problems: t.owl.problems })
     }
@@ -306,7 +305,7 @@ PanelWindow {
   function updateRegions() {
     var out = []
     for (var i = 0; i < tiles.count; i++) {
-      var t = tiles.itemAt(i)
+      var t = tiles.itemAt(i) as Tile
       if (t && t.region) out.push(t.region)
     }
     win.tileRegions = out

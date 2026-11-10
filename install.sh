@@ -7,6 +7,9 @@
 #
 #   --no-autostart   don't start the widgets with Hyprland
 #   --no-start       don't start them now
+#   --uninstall      stop them, take them out of Hyprland's autostart, and
+#                    remove the command and the clone (your widgets, style
+#                    and layout stay)
 #
 # Through curl, pass options with: ... | bash -s -- --no-autostart
 # Running it again updates the install and restarts the widgets.
@@ -25,17 +28,40 @@ PACKAGES=(quickshell curl jq perl inotify-tools git)
 say() { printf '\033[1m%s\033[0m\n' "$*"; }
 die() { echo "install.sh: $*" >&2; exit 1; }
 
-autostart=1 start=1
+autostart=1 start=1 uninstall=0
 for a in "$@"; do
   case $a in
     --no-autostart) autostart=0 ;;
     --no-start) start=0 ;;
-    -h | --help) echo "usage: install.sh [--no-autostart] [--no-start]"; exit 0 ;;
-    *) die "unknown option $a (--no-autostart, --no-start)" ;;
+    --uninstall) uninstall=1 ;;
+    -h | --help) echo "usage: install.sh [--no-autostart] [--no-start] | --uninstall"; exit 0 ;;
+    *) die "unknown option $a (--no-autostart, --no-start, --uninstall)" ;;
   esac
 done
 
 [[ $EUID -ne 0 ]] || die "run it as yourself, not as root"
+
+if ((uninstall)); then
+  link=$HOME/.local/bin/owl-desktop
+  owl=""
+  [[ -L $link && $(readlink -- "$link") == */bin/owl-desktop ]] && owl=$(readlink -f -- "$link")
+  [[ -n $owl && -f $owl ]] || owl=$DEST/bin/owl-desktop
+  if [[ -f $owl ]]; then
+    bash "$owl" autostart off
+    bash "$owl" stop
+  fi
+  if [[ -L $link && $(readlink -- "$link") == */bin/owl-desktop ]]; then
+    rm -f -- "$link"
+    echo "removed ~/.local/bin/owl-desktop"
+  fi
+  if [[ -d $DEST/.git && -f $DEST/shell.qml && -f $DEST/bin/owl-desktop ]]; then
+    rm -rf -- "$DEST"
+    echo "removed ${DEST/#"$HOME"/\~}"
+  fi
+  say "Uninstalled."
+  echo "Kept your widgets (~/.config/omarchy-widgets), style (~/.config/owl-desktop) and layout (~/.local/state/owl-desktop); delete them if you don't want them."
+  exit 0
+fi
 
 # 1. Packages (Omarchy ships them all; this only fills gaps).
 if command -v pacman >/dev/null 2>&1; then

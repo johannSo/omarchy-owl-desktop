@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Arch, as Omarchy is: qmllint needs Quickshell's own QML types.
+    container: archlinux:latest
+    steps:
+      - name: Packages
+        run: pacman -Syu --noconfirm --needed git nodejs quickshell shellcheck curl jq perl inotify-tools
+
+      - uses: actions/checkout@v4
+
+      - name: Layout tests
+        run: node test/layout.test.mjs
+
+      # Any warning fails, but two: var in a block (style), and Quickshell's
+      # PanelWindow, which qmllint takes for the uncreatable interface in
+      # Quickshell instead of the window Quickshell.Wayland provides.
+      - name: qmllint
+        run: >-
+          /usr/lib/qt6/bin/qmllint --max-warnings 0
+          --block-scope-var-declaration disable --uncreatable-type disable
+          *.qml
+
+      - name: shellcheck
+        run: shellcheck --severity=warning install.sh bin/owl-desktop test/install.test.sh
+
+      # install.sh won't run as root.
+      - name: install.sh
+        run: |
+          useradd -m tester
+          cp -r . /home/tester/repo
+          chown -R tester: /home/tester/repo
+          runuser -u tester -- env HOME=/home/tester bash /home/tester/repo/test/install.test.sh
