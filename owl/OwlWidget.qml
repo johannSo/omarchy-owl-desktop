@@ -1,0 +1,844 @@
+pragma ComponentBehavior: Bound
+
+// One OWL widget file, live: compiled by Owl.js, its sources run by
+// OwlSource.qml, drawn by OwlNode.qml.
+//
+// What the launcher writes to `.errors/<file>.txt` beside the widget -- the
+// compile error with a caret, then runtime problems as they happen -- this
+// writes too, in the same place, because that file is what an agent writing
+// a widget is told to read (docs/widgets.md).
+//
+// `state x = ... persist` survives in <stateDir>/<file>.json, and `state x = null
+// secret` in <stateDir>/<file>.secrets.json, which only the user can read: a
+// desktop has no keystore to encrypt it with, as the launcher does.
+
+import QtQuick
+import QtQml
+import Quickshell
+import Quickshell.Io
+import "Owl.js" as Owl
+import "OwlLayout.js" as L
+
+Item {
+  id: root
+
+  // The .owl file.
+  property string path: ""
+  // The shell's side: fonts, actions, media. An OwlHost.
+  property OwlHost host: OwlHost {}
+  // name -> ARGB, from OwlTheme.
+  property var palette: ({})
+  // Sources run and animations play only while this is true: the board is up.
+  property bool active: false
+  // The tile in grid cells, and one cell's side in px.
+  property int cols: 3
+  property int rows: 2
+  property real cell: 60
+  // The board, for screenWidth/screenHeight.
+  property real screenWidth: 360
+  property real screenHeight: 720
+
+  // One dp, in px. The board sets it from the cell size so a widget keeps
+  // the proportions it was drawn with on the launcher's grid.
+  property real dp: root.host.dp
+  readonly property string home: root.host.home
+  readonly property string fileName: root.path.slice(root.path.lastIndexOf("/") + 1)
+  readonly property string dir: root.path.slice(0, root.path.lastIndexOf("/"))
+  readonly property string stateDir: root.host.stateDir
+  readonly property string sansFamily: root.host.sansFamily
+  readonly property string monoFamily: root.host.monoFamily
+  // The Nerd Font upstream's bar uses, which has the weather and moon glyphs
+  // weatherIcon() returns.
+  readonly property string iconFamily: root.host.iconFamily
+
+  property var program: null
+  property var instance: null
+  property var tree: null
+  property var screenTree: null
+  property bool screenOpen: false
+  property string error: ""
+  property var problems: []
+  // Bumped on every change, for bindings that re-read the instance.
+  property int generation: 0
+  // Bumped every animation frame.
+  property int frame: 0
+  // Bumped by every render, whether or not the tree changed: a Canvas whose node
+  // was kept still asks its drawing again, which may read what did change.
+  property int renders: 0
+  // The globals the Canvases' drawings read (slot -> true), added to by each
+  // OwlCanvas; with the tree's own, what a change has to touch to be drawn.
+  property var drawReads: ({})
+  // The next render is owed whatever changed: a resize, not a source.
+  property bool renderAll: true
+  // Canvases whose last drawing read `time`; each OwlCanvas counts itself in and out.
+  property int timeCanvases: 0
+
+  readonly property string name: root.program ? root.program.name : root.fileName.replace(/\.owl$/, "")
+  readonly property var size: root.program && root.program.size ? root.program.size : [3, 2]
+  readonly property var minSize: root.program ? root.program.minSize : [1, 1]
+  readonly property int page: root.program ? root.program.page : 1
+  readonly property int order: root.program ? root.program.order : 0
+  readonly property bool hasScreen: !!(root.program && root.program.screen)
+  // A face (owl 10): a whole home page, drawn without a tile's frame.
+  readonly property bool isFace: !!(root.program && root.program.isFace)
+  readonly property int level: root.program ? root.program.level : 1
+
+  signal screenRequested()
+  signal screenClosed()
+
+  // ---------------------------------------------------------------- theme
+
+  function ink(name) {
+    var v = root.palette[name]
+    return v === undefined || v === null ? "#ff888888" : Owl.hex8(v)
+  }
+
+  function alpha(c, a) {
+    var q = Qt.color(c)
+    return Qt.rgba(q.r, q.g, q.b, q.a * a)
+  }
+
+  onPaletteChanged: {
+    if (!root.instance) return
+    root.instance.invalidate()
+    root.render()
+  }
+
+  // ---------------------------------------------------------------- load
+
+  property string sourceText: ""
+  property var persisted: null
+  property bool stateRead: false
+  property var secrets: null
+  property bool secretsRead: false
+
+  FileView {
+    id: sourceFile
+    path: root.path
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: {
+      root.sourceText = text()
+      root.load()
+    }
+    onLoadFailed: {
+      root.sourceText = ""
+      root.fail("can't read " + root.path)
+    }
+  }
+
+  FileView {
+    id: stateFile
+    path: root.fileName ? root.stateDir + "/" + root.fileName + ".json" : ""
+    printErrors: false
+    atomicWrites: true
+    onLoaded: {
+      try { root.persisted = JSON.parse(text()) } catch (e) { root.persisted = {} }
+      root.stateRead = true
+      root.load()
+    }
+    onLoadFailed: {
+      root.persisted = {}
+      root.stateRead = true
+      root.load()
+    }
+  }
+
+  FileView {
+    id: secretFile
+    path: root.fileName ? root.stateDir + "/" + root.fileName + ".secrets.json" : ""
+    printErrors: false
+    // Written in place, so it keeps the mode it was made with.
+    atomicWrites: false
+    onLoaded: {
+      try { root.secrets = JSON.parse(text()) } catch (e) { root.secrets = {} }
+      root.secretsRead = true
+      root.load()
+    }
+    onLoadFailed: {
+      root.secrets = {}
+      root.secretsRead = true
+      root.load()
+    }
+  }
+
+  function load() {
+    if (!root.stateRead || !root.secretsRead || root.sourceText === "") return
+    var program
+    try {
+      // strings { } and lang() take the desktop's language, as the launcher takes the phone's.
+      program = Owl.compile(root.sourceText, Qt.locale().name.split("_")[0])
+    } catch (e) {
+      root.fail(Owl.formatError(root.sourceText, e))
+      return
+    }
+    root.error = ""
+    root.problems = []
+    writeErrors()
+    root.program = program
+    root.instance = new Owl.Instance(program, root.bridge, root.persisted || {}, root.secrets || {})
+    root.sourceSpecs = root.instance.sources()
+    root.everySpecs = root.instance.everyTriggers()
+    root.render()
+    // Takes in each `on` trigger's first value, and runs the ones that say `first`.
+    root.instance.checkTriggers()
+  }
+
+  function fail(message) {
+    root.error = message
+    root.program = null
+    root.instance = null
+    root.sourceSpecs = []
+    root.everySpecs = []
+    root.tree = null
+    root.screenTree = null
+    writeErrors()
+  }
+
+  // ------------------------------------------------------------ the host
+
+  // What the compiled widget calls back into (Owl.js's Instance host).
+  readonly property var bridge: ({
+    theme: function(name) {
+      var v = root.palette[name]
+      return v === undefined ? null : v
+    },
+    tile: function(name) {
+      if (name === "linux") return true
+      if (name === "cols") return root.cols
+      if (name === "rows") return root.rows
+      if (name === "tileWidth") return root.width / root.dp
+      if (name === "tileHeight") return root.height / root.dp
+      if (name === "screenWidth") return root.screenWidth / root.dp
+      if (name === "screenHeight") return root.screenHeight / root.dp
+      // What a navigation bar covers of a face: there is none here.
+      if (name === "screenInset") return 0
+      // What the status bar, a cutout or a navigation bar at the side covers of an edge face (owl 14): none here.
+      if (name === "screenTop" || name === "screenLeft" || name === "screenRight") return 0
+      // Omarchy's corners are square.
+      if (name === "corners") return 0
+      // The board's gaps and borders, and its tiles' glass (owl 12 and 13).
+      if (name === "gapsIn" || name === "gapsOut" || name === "borderWidth" || name === "tileOpacity" || name === "tileFrost")
+        return root.host[name]
+      return null
+    },
+    act: function(name, args) { root.act(name, args) },
+    runInto: function(command, slot) { root.runInto(command, slot) },
+    post: function(url, body, headers, slot, method) { root.post(url, body, headers, slot, method) },
+    report: function(message) { root.report(message) },
+    changed: function() { root.changed() }
+  })
+
+  function changed() {
+    root.generation++
+    savePersisted.restart()
+    renderLater.restart()
+  }
+
+  // Coalesced: a handler that sets three states draws once. And a change that
+  // nothing on screen read -- a clock ticking every second for a widget that
+  // only uses it to time a fetch -- draws nothing: on a Pixel 3a that was the
+  // whole of fear-greed's cost, once a second, on the GUI thread.
+  Timer {
+    id: renderLater
+    interval: 0
+    onTriggered: {
+      if (!root.instance) return
+      var needed = root.instance.needsRender(root.drawReads)
+      if (needed || root.renderAll || !root.tree) root.render()
+    }
+  }
+
+  // A render is merged into the tree on screen (share()), so only what changed
+  // reaches QML: a node whose object is kept costs nothing there, and a widget
+  // whose clock ticks every second while it shows the same thing hands over
+  // nothing at all. On a Pixel 3a, re-applying an identical tree was 26 ms of
+  // the GUI thread a second for one widget, in stalls of 100 ms.
+  function render() {
+    if (!root.instance) return
+    root.renderAll = false
+    var tree = root.share(root.tree, root.instance.render(false))
+    if (tree !== root.tree) root.tree = tree
+    if (root.screenOpen) {
+      var screen = root.share(root.screenTree, root.instance.render(true))
+      if (screen !== root.screenTree) root.screenTree = screen
+    }
+    root.renders++
+  }
+
+  // `b`, made of `a`'s objects wherever they hold the same values: the same
+  // keys, and equal values but for functions. A function is a handler or a
+  // drawing, made new by every render, so it decides nothing; where an object
+  // is kept, its functions are replaced in place with the new ones, so a tap
+  // runs this render's handler and a Canvas this render's drawing.
+  function share(a, b) {
+    if (a === b || a === null || b === null || typeof a !== "object" || typeof b !== "object") return b
+    if (Array.isArray(a) !== Array.isArray(b)) return b
+    var same = true
+    var out
+    if (Array.isArray(b)) {
+      same = a.length === b.length
+      out = new Array(b.length)
+      for (var i = 0; i < b.length; i++) {
+        out[i] = root.share(a[i], b[i])
+        if (out[i] !== a[i]) same = false
+      }
+      return same ? a : out
+    }
+    out = {}
+    var k
+    for (k in a) if (!(k in b)) same = false
+    for (k in b) {
+      if (!(k in a)) same = false
+      if (typeof b[k] === "function") {
+        if (typeof a[k] !== "function") same = false
+        out[k] = b[k]
+        continue
+      }
+      out[k] = root.share(a[k], b[k])
+      if (out[k] !== a[k] && !(out[k] !== out[k] && a[k] !== a[k])) same = false
+    }
+    if (!same) return out
+    for (k in b) if (typeof b[k] === "function") a[k] = b[k]
+    return a
+  }
+
+  // Tile size feeds tileWidth and tileHeight, which a widget may draw from.
+  onWidthChanged: if (root.instance) { root.instance.invalidate(); root.renderAll = true; renderLater.restart() }
+  onHeightChanged: if (root.instance) { root.instance.invalidate(); root.renderAll = true; renderLater.restart() }
+
+  // --------------------------------------------------------------- fonts
+
+  // A `font` as a family name: one of the words, or since owl 10 a font of the
+  // widget's own -- an asset, an https URL or a file -- which draws in the mono
+  // font until it has loaded. Up to 8 per file, as on the launcher.
+  property var fontLoaders: ({})
+  property int fontsLoaded: 0
+
+  function fontFamily(name) {
+    void root.fontsLoaded
+    if (name === undefined || name === null || name === "" || name === "mono") return root.monoFamily
+    if (name === "sans") return root.sansFamily
+    if (name === "serif") return "serif"
+    if (name === "icon") return root.iconFamily
+    if (root.level < 10) return root.monoFamily
+    var loader = root.fontLoaders[name]
+    // Made after the binding that asked: a loader that's ready at once would change what it reads.
+    if (loader === undefined) {
+      root.fontLoaders[name] = null
+      // A closure each: callLater runs one function once, with the last name.
+      Qt.callLater(function() { root.loadFont(name) })
+    }
+    return loader && loader.status === FontLoader.Ready ? loader.name : root.monoFamily
+  }
+
+  function loadFont(name) {
+    var url = L.url(name, root.home)
+    if (!url || Object.keys(root.fontLoaders).filter(function(k) { return root.fontLoaders[k] }).length >= 8) return
+    var loader = fontLoader.createObject(root, { from: url })
+    root.fontLoaders[name] = loader
+    var load = function(file) {
+      if (file) loader.source = file
+      else root.report("can't load the font " + url.slice(0, 80))
+      root.fontsLoaded++
+    }
+    if (/^https?:\/\//i.test(url)) root.fetchFile(url, load, true)
+    else load(url)
+  }
+
+  Component {
+    id: fontLoader
+    FontLoader {
+      property string from: ""
+      onStatusChanged: {
+        if (status === FontLoader.Error) root.report("can't load the font " + from.slice(0, 80))
+        root.fontsLoaded++
+      }
+    }
+  }
+
+  // --------------------------------------------------------- web files
+
+  // An http(s) image or font is fetched by curl into a file that Qt then reads,
+  // as the launcher does: handed the URL, Qt reads the whole answer into this
+  // shell, which every widget shares, however big it is. Up to maxFile bytes,
+  // kept a day; one that can't be fetched again keeps its last copy.
+  readonly property int maxFile: 8 << 20
+  readonly property string fileCache: (Quickshell.env("XDG_CACHE_HOME") || root.home + "/.cache") + "/owl/files"
+  property var webFiles: ({})
+  property int filesLoaded: 0
+  // Pictures waiting or running, up to maxQueued: a URL past that isn't kept,
+  // and is asked for again as the others finish.
+  readonly property int maxQueued: 64
+  property var fetches: []
+  property int queued: 0
+  property bool gone: false
+
+  // src as a URL for Qt: a local one as it is, an http(s) one once it's on disk, "" until then.
+  function localUrl(src) {
+    void root.filesLoaded
+    var url = L.url(src, root.home)
+    if (!/^https?:\/\//i.test(url)) return url
+    var file = root.webFiles[url]
+    if (file === undefined && root.queued < root.maxQueued) {
+      // A feed's pictures change; the ones on disk are found again at once.
+      if (Object.keys(root.webFiles).length >= 2000) root.webFiles = {}
+      root.webFiles[url] = ""
+      root.queued++
+      root.fetchFile(url, function(got) {
+        root.queued--
+        root.webFiles[url] = got
+        root.filesLoaded++
+      })
+    }
+    return file || ""
+  }
+
+  // done(a file:// URL) once url is on disk, or done("") when it can't be.
+  // The URL goes to curl on stdin, as http()'s do; files a week old are pruned.
+  // curl runs in the background so that a widget that's gone, stopping this
+  // script, stops it too: a plain child would go on without it.
+  readonly property string fetchScript: [
+    'f=$1',
+    'if [[ -f $f && -n $(find "$f" -mmin -1440) ]]; then echo "$f"; exit; fi',
+    'mkdir -p "${f%/*}"',
+    'curl -sSfL --proto =http,https --proto-redir =http,https --max-time 30 --max-filesize "$2" -o "$f.$$" -K - <&0 &',
+    'c=$!',
+    'trap \'kill $c 2>/dev/null; rm -f "$f.$$"; exit 1\' TERM',
+    'if wait $c; then',
+    '  mv -f "$f.$$" "$f"',
+    '  find "${f%/*}" -type f -mtime +7 -delete',
+    'else',
+    '  rm -f "$f.$$"',
+    'fi',
+    '[[ -f $f ]] && echo "$f"'].join("\n")
+
+  // Waits its turn on the host; a font, of which there are at most 8, goes first.
+  function fetchFile(url, done, first) {
+    root.host.queueFetch(root, function() {
+      var p = fileFetch.createObject(root, {
+        command: ["bash", "-c", root.fetchScript, "owl-file", root.fileCache + "/" + Qt.md5(url), String(root.maxFile)],
+        config: "url = " + root.quote(url) + "\n", done: done })
+      root.fetches.push(p)
+      p.running = true
+    }, first)
+  }
+
+  Component.onDestruction: {
+    root.gone = true
+    root.host.dropFetches(root)
+    root.fetches.forEach(function(p) {
+      p.running = false
+      root.host.fetched()
+    })
+    root.fetches = []
+  }
+
+  Component {
+    id: fileFetch
+    Process {
+      id: fetch
+      property string config: ""
+      property var done: null
+      property string file: ""
+      property int left: 2
+      stdinEnabled: true
+      onStarted: {
+        fetch.write(fetch.config)
+        fetch.stdinEnabled = false
+      }
+      stdout: StdioCollector {
+        onStreamFinished: { fetch.file = text.trim(); fetch.settle() }
+      }
+      onExited: fetch.settle()
+      function settle() {
+        if (--fetch.left > 0 || root.gone) return
+        root.fetches.splice(root.fetches.indexOf(fetch), 1)
+        root.host.fetched()
+        fetch.done(fetch.file ? "file://" + fetch.file : "")
+        fetch.destroy()
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ sources
+
+  property var sourceSpecs: []
+
+  function sourceValue(slot, value) {
+    if (root.instance) root.instance.setSource(slot, value)
+  }
+
+  function sourceObject(slot, value) {
+    if (root.instance) root.instance.setSource(slot, Owl.fromJson(value))
+  }
+
+  function sourceJson(slot, text) {
+    if (!root.instance) return
+    var v = null
+    try { v = Owl.parseJson(String(text).trim()) } catch (e) { root.report("not JSON: " + String(text).slice(0, 80)) }
+    root.instance.setSource(slot, v)
+  }
+
+  // A `status` source: {out, err, code, ok}, as docs/LANGUAGE.md has it. `out`
+  // is parsed when the source is `json` (null when it is not JSON), `code` is
+  // the exit code or the HTTP status, 124 for a timeout.
+  function sourceStatus(slot, code, text, err, json, ok) {
+    if (!root.instance) return
+    var out = text
+    if (json) {
+      try { out = Owl.parseJson(String(text).trim()) } catch (e) { out = null }
+    } else out = String(text).replace(/\s+$/, "")
+    root.instance.setSource(slot, new Map([["out", out], ["err", String(err || "").replace(/\s+$/, "")], ["code", code], ["ok", !!ok]]))
+  }
+
+  Instantiator {
+    model: root.sourceSpecs
+    delegate: OwlSource {
+      required property var modelData
+      spec: modelData
+      widget: root
+    }
+  }
+
+  // ----------------------------------------------------------- triggers
+
+  property var everySpecs: []
+
+  Instantiator {
+    model: root.everySpecs
+    delegate: Timer {
+      required property var modelData
+      interval: modelData.seconds * 1000
+      repeat: true
+      running: root.active && !!root.instance
+      onTriggered: if (root.instance) root.instance.fire(modelData.index)
+    }
+  }
+
+  Timer {
+    interval: 1000
+    repeat: true
+    running: root.active && !!root.instance && root.instance.hasAt()
+    onTriggered: root.instance.tick(Date.now() / 1000)
+  }
+
+  // -------------------------------------------------------- animation
+
+  // `time` is seconds since the board opened, like the launcher's, which a
+  // widget is written to expect: it restarts when the board reopens, and not
+  // when the clock below pauses, or every animation would jump back to its
+  // start each time something came into view.
+  property real clockStart: Date.now()
+  onActiveChanged: if (root.active) root.clockStart = Date.now()
+
+  // The clock runs only while something on screen reads `time`: the tree, or a
+  // canvas's drawing. A widget that animates some of the time -- a player's
+  // bars while music plays -- costs nothing the rest of it. It is the program
+  // that is `animated`, so without this a hidden branch kept the clock running:
+  // on a Pixel 3a, now-playing with nothing playing held 85% of a core, and
+  // 0.1% with it.
+  readonly property bool needsFrames: (!!root.tree && root.tree.readsTime) || root.timeCanvases > 0
+
+  // A Timer at the host's frame rate, not a FrameAnimation: a running
+  // FrameAnimation has the window drawn again every display frame whether or
+  // not a frame is taken, which measured a quarter of a core on its own.
+  Timer {
+    interval: Math.max(1, Math.round(1000 / Math.max(1, root.host.frameRate)))
+    repeat: true
+    running: root.active && !!root.program && root.program.animated && root.visible && root.needsFrames
+    onTriggered: {
+      root.instance.frame((Date.now() - root.clockStart) / 1000)
+      root.frame++
+      if (root.tree && root.tree.readsTime) root.render()
+    }
+  }
+
+  // ------------------------------------------------------------ actions
+
+  // run(), refresh(), screen(), close() and sound() are the widget's own; the rest
+  // -- terminal, app, url, media, launcher... -- are the host's.
+  function act(name, args) {
+    var a = args || []
+    switch (name) {
+    case "run": return runAndRefresh(a[0] === undefined || a[0] === null ? "" : Owl.show(a[0]))
+    case "refresh": return root.refresh()
+    case "screen": return root.openScreen()
+    case "close": return root.closeScreen()
+    case "sound": return a[0] === undefined || a[0] === null ? undefined : root.sound(Owl.show(a[0]))
+    }
+    root.host.act(root, name, a.map(function(v) { return v === null || v === undefined ? null : Owl.show(v) }))
+  }
+
+  function refresh() {
+    var specs = root.sourceSpecs
+    root.sourceSpecs = []
+    root.sourceSpecs = specs
+  }
+
+  property var runs: []
+
+  // post(url, body, headers): a map or list body goes as JSON, anything else as
+  // its text, with method: PUT, PATCH or DELETE (owl 12) instead of POST. With a
+  // slot, the answer lands there as {code, ok, out}; a 2xx refreshes the widget's
+  // sources, since what it changed shows in them.
+  function post(url, body, headers, slot, method) {
+    var json = Array.isArray(body) || body instanceof Map
+    var where = url.replace(/\?.*/, "?…")
+    var typed = false
+    for (var k in headers) if (k.toLowerCase() === "content-type") typed = true
+    var sent = Object.assign({}, headers)
+    if (!typed) sent["Content-Type"] = json ? "application/json" : "text/plain;charset=UTF-8"
+    root.http(method || "POST", url, sent, json ? JSON.stringify(Owl.toJson(body)) : body === null ? "" : Owl.show(body), 30, function(code, text, err) {
+      var ok = code >= 200 && code < 300
+      if (!ok && slot === null) root.report("post: " + (err || "HTTP " + code) + " from " + where)
+      if (slot !== null && root.instance) {
+        var out = null
+        if (text !== "") try { out = Owl.parseJson(text.trim()) } catch (e) { out = text }
+        root.instance.setState(slot, new Map([["code", code], ["ok", ok], ["out", out]]))
+      }
+      if (ok) root.refresh()
+    })
+  }
+
+  // HTTP goes through curl, not XMLHttpRequest: that reads an answer whole into
+  // this shell, which every widget shares, with no limit to its size or its time.
+  // curl stops at maxAnswer bytes and at the deadline, and done(code, text, err)
+  // gets the HTTP status, 124 for a timeout or 0 when there's no answer, err
+  // saying why. The URL, the headers and the body go to curl as a config on
+  // stdin, not as arguments: any account on the machine can read those in
+  // /proc, and a header or the URL is where a widget's token goes.
+  readonly property int maxAnswer: 4 << 20
+  readonly property int maxRedirects: 5
+
+  // Redirects are followed here, as the launcher does, not by curl -L, which
+  // takes a widget's headers (an API key, a secret) along to whatever server a
+  // redirect names: they go only to the server the widget wrote out. A body
+  // never goes again to another server, and https never steps down to http.
+  // s as a quoted value in a curl config.
+  function quote(s) {
+    return '"' + String(s).replace(/[\\"]/g, "\\$&").replace(/\r/g, "\\r").replace(/\n/g, "\\n").replace(/\t/g, "\\t") + '"'
+  }
+
+  function http(method, url, headers, body, seconds, done) {
+    var from = root.origin(url)
+    var deadline = Date.now() + seconds * 1000
+    var hop = function(target, method, body, redirects) {
+      var left = (deadline - Date.now()) / 1000
+      if (left <= 0) return done(124, "", "timed out")
+      var config = ["url = " + root.quote(target)]
+      // A header starting with @ would be read from that file.
+      if (root.origin(target) === from)
+        for (var k in headers) if (k[0] !== "@") config.push("header = " + root.quote((k + ": " + headers[k]).replace(/[\r\n]/g, " ")))
+      if (body !== null) config.push("data-raw = " + root.quote(body))
+      var command = ["curl", "-sS", "--proto", "=http,https",
+        "-X", method, "--max-time", left.toFixed(3), "--max-filesize", String(root.maxAnswer),
+        "-w", "\n%{http_code}\n%{redirect_url}", "-K", "-"]
+      var call = httpCall.createObject(root, { command: command, config: config.join("\n") + "\n", done: function(exit, status, next, text, err) {
+        if (exit !== 0) return done(exit === 28 ? 124 : 0, "", exit === 28 ? "timed out"
+          : exit === 63 ? "answer over " + (root.maxAnswer >> 20) + " MB"
+          : err.replace(/^curl: \(\d+\) /, "").trim() || "curl exited " + exit)
+        if ([301, 302, 303, 307, 308].indexOf(status) < 0 || next === "") return done(status, text, "")
+        if (redirects >= root.maxRedirects) return done(0, "", "too many redirects")
+        // 303 asks for a GET, as 301 and 302 do for a POST; the others send the same again.
+        var get = status === 303 || (status === 301 || status === 302) && method === "POST"
+        var why = root.redirectRefused(target, next, get ? null : body)
+        if (why) return done(0, "", why)
+        hop(next, get ? "GET" : method, get ? null : body, redirects + 1)
+      } })
+      call.running = true
+    }
+    hop(url, method, body, 0)
+  }
+
+  // Why a redirect from `target` to `next` isn't followed, or "".
+  function redirectRefused(target, next, body) {
+    var to = root.origin(next)
+    if (!/^https?:/.test(to)) return "redirected to a URL that isn't http(s), not followed"
+    if (/^https:/.test(root.origin(target)) && /^http:/.test(to))
+      return "redirected from https to http (" + to.slice(7) + "), not followed"
+    if (body !== null && body !== "" && to !== root.origin(target))
+      return "redirected to another server (" + to.replace(/^https?:\/\//, "") + "), which would get the request's body: not followed"
+    return ""
+  }
+
+  // A URL's scheme, host and port, the port written out: "https://api.example.com:443".
+  function origin(url) {
+    var m = /^([a-z][a-z0-9+.-]*):\/\/(?:[^\/?#@]*@)?([^\/?#]*)/i.exec(url)
+    if (!m) return ""
+    var scheme = m[1].toLowerCase()
+    var host = m[2].toLowerCase()
+    if (!/:\d+$/.test(host)) host += ":" + (scheme === "https" ? 443 : 80)
+    return scheme + "://" + host
+  }
+
+  Component {
+    id: httpCall
+    Process {
+      id: call
+      property string config: ""
+      property var done: null
+      property string text: ""
+      property string err: ""
+      property int left: 3
+      stdinEnabled: true
+      onStarted: {
+        call.write(call.config)
+        call.stdinEnabled = false
+      }
+      stdout: StdioCollector {
+        onStreamFinished: { call.text = text; call.settle(-1) }
+      }
+      stderr: StdioCollector {
+        onStreamFinished: { call.err = text; call.settle(-1) }
+      }
+      onExited: (code) => call.settle(code)
+      property int exit: 0
+      // -w ends the answer with its status and, for a redirect, where to.
+      function settle(code) {
+        if (code >= 0) call.exit = code
+        if (--call.left > 0) return
+        var cut = call.text.lastIndexOf("\n")
+        var at = call.text.lastIndexOf("\n", cut - 1)
+        var status = Number(call.text.slice(at + 1, cut)) || 0
+        call.done(call.exit, status, call.text.slice(cut + 1).trim(), call.text.slice(0, Math.max(at, 0)), call.err)
+        call.destroy()
+      }
+    }
+  }
+
+  // sound(...): one at a time, a new one in place of the last; "stop" stops it.
+  // mpv plays URLs and files; an asset's data: URL is decoded into it on stdin.
+  function sound(src) {
+    soundPlayer.running = false
+    if (src === "stop" || src === "") return
+    var file = L.url(src, root.home)
+    var data = /^data:[^;,]*;base64,/.exec(file)
+    soundPlayer.command = data
+      ? ["bash", "-c", "base64 -d <<<\"$1\" | mpv --no-video --really-quiet -", "sound", file.slice(data[0].length)]
+      : ["mpv", "--no-video", "--really-quiet", "--", file.replace(/^file:\/\//, "")]
+    soundPlayer.running = true
+  }
+
+  Process { id: soundPlayer }
+
+  function runAndRefresh(command) {
+    var p = runner.createObject(root, { command: ["bash", "-c", command], slot: -1 })
+    p.running = true
+  }
+
+  function runInto(command, slot) {
+    var p = runner.createObject(root, { command: ["bash", "-c", command], slot: slot })
+    p.running = true
+  }
+
+  // run() and `x = run(...)`: one process each, gone when it ends. The first
+  // refreshes the widget's sources after; the second sets the state.
+  Component {
+    id: runner
+    Process {
+      id: proc
+      property int slot: -1
+      workingDirectory: root.home || "/"
+      stdout: StdioCollector {
+        id: out
+        onStreamFinished: {
+          if (proc.slot >= 0 && root.instance) root.instance.setState(proc.slot, out.text.replace(/\s+$/, ""))
+        }
+      }
+      onExited: {
+        if (proc.slot < 0) root.refresh()
+        proc.destroy(1000)
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- screen
+
+  function openScreen() {
+    if (!root.hasScreen) return
+    root.screenOpen = true
+    root.screenTree = root.instance.render(true)
+    root.screenRequested()
+  }
+
+  function closeScreen() {
+    if (!root.screenOpen) return
+    root.screenOpen = false
+    root.screenTree = null
+    root.screenClosed()
+  }
+
+  // --------------------------------------------------------- persistence
+
+  Timer {
+    id: savePersisted
+    interval: 500
+    onTriggered: {
+      if (!root.instance) return
+      saveSecrets()
+      var data = root.instance.persisted()
+      if (Object.keys(data).length === 0) return
+      var text = JSON.stringify(data)
+      if (text === JSON.stringify(root.persisted)) return
+      root.persisted = data
+      ensureDir(root.stateDir, function() { stateFile.setText(text + "\n") })
+    }
+  }
+
+  // Secrets go to a file only the user can read, made so before anything is written to it. One that's
+  // been signed out of empties it.
+  function saveSecrets() {
+    var data = root.instance.secrets()
+    var text = JSON.stringify(data)
+    if (text === JSON.stringify(root.secrets || {})) return
+    root.secrets = data
+    var p = mkdir.createObject(root, { command: ["bash", "-c", "mkdir -p \"$1\" && umask 077 && touch \"$2\" && chmod 600 \"$2\"", "owl",
+      root.stateDir, secretFile.path] })
+    p.exited.connect(function() { secretFile.setText(text + "\n"); p.destroy(1000) })
+    p.running = true
+  }
+
+  // -------------------------------------------------------------- errors
+
+  function report(message) {
+    var line = String(message)
+    if (root.problems.indexOf(line) >= 0) return
+    root.problems = root.problems.concat([line]).slice(-20)
+    writeErrorsLater.restart()
+  }
+
+  Timer {
+    id: writeErrorsLater
+    interval: 1000
+    onTriggered: writeErrors()
+  }
+
+  function writeErrors() {
+    if (!root.fileName) return
+    var text = root.error ? root.error + "\n" : ""
+    if (root.problems.length) text += root.problems.join("\n") + "\n"
+    var dir = root.dir + "/.errors"
+    ensureDir(dir, function() { errorFile.setText(text) })
+  }
+
+  FileView {
+    id: errorFile
+    path: root.fileName ? root.dir + "/.errors/" + root.fileName.replace(/\.owl$/, "") + ".txt" : ""
+    printErrors: false
+    blockLoading: true
+  }
+
+  // setText() does not make directories.
+  function ensureDir(path, then) {
+    var p = mkdir.createObject(root, { command: ["mkdir", "-p", path] })
+    p.exited.connect(function() { then(); p.destroy(1000) })
+    p.running = true
+  }
+
+  Component {
+    id: mkdir
+    Process {}
+  }
+}
