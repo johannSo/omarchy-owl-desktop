@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-# install.sh in a throwaway home, starting nothing: from a checkout, as the
-# curl one-liner runs it (a clone), again (an update), then --uninstall.
+# install.sh and update.sh in a throwaway home, starting nothing: install from
+# a checkout, as the curl one-liner runs it (a clone), again, update.sh, then
+# install.sh --uninstall.
 #
 #   bash test/install.test.sh
 
@@ -53,8 +54,27 @@ grep -qF "\"$clone/bin/owl-desktop run\"" "$hypr" || fail "one-liner: autostart 
 ok "one-liner: cloned, linked, autostart moved to the clone"
 
 out=$(cd "$tmp" && bash -s -- --no-start <"$src/install.sh")
-grep -q "Updating" <<<"$out" || fail "update: didn't update the clone"
-ok "update: pulls the clone"
+grep -q "Updating" <<<"$out" || fail "install again: didn't update the clone"
+ok "install again: pulls the clone"
+
+commit() { git -C "$src" -c user.name=test -c user.email=test@localhost commit -qam "$1"; }
+echo "# a change" >>"$src/README.md"
+commit "a change"
+out=$(owl-desktop update)
+[[ $(git -C "$clone" rev-parse HEAD) == $(git -C "$src" rev-parse HEAD) ]] || fail "update: the clone wasn't pulled"
+grep -q "a change" <<<"$out" || fail "update: doesn't say what changed"
+grep -q "Updated to" <<<"$out" || fail "update: the new update.sh didn't finish it"
+out=$(owl-desktop update)
+grep -q "already up to date" <<<"$out" || fail "update: pulled with nothing new"
+echo "# another" >>"$src/README.md"
+commit "another change"
+out=$(cd "$tmp" && bash -s <"$src/update.sh")
+grep -q "another change" <<<"$out" || fail "update through curl: didn't find the install"
+echo "# mine" >>"$clone/README.md"
+if owl-desktop update >/dev/null 2>&1; then fail "update: went over local changes"; fi
+git -C "$clone" checkout -q README.md
+[[ $(launches) == 1 ]] || fail "update: changed autostart.lua"
+ok "update: pulls what's new and says so, through curl too; leaves local changes and autostart alone"
 
 (cd "$tmp" && bash -s -- --uninstall <"$src/install.sh" >/dev/null)
 [[ ! -e $link && ! -L $link ]] || fail "uninstall: the command is still there"

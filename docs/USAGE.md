@@ -125,7 +125,7 @@ in particular:
 
 ## Commands
 
-`owl-desktop help` lists them all; also `status`, `stop`, `restart`, `list`
+`owl-desktop help` lists them all; also `update`, `status`, `stop`, `restart`, `list`
 (the widgets, where they are and what's wrong with them), `screen <file>`,
 `reload` and `logs`.
 
@@ -156,5 +156,5 @@ out of autostart, and removes `~/.local/bin/owl-desktop` and the clone
 | `test/` | `node test/layout.test.mjs`, `bash test/install.test.sh`; CI runs them with qmllint and shellcheck |
 | `owl/` | the OWL runtime (`owl/PATCHES.md`) |
 | `bin/owl-desktop` | the command |
-| `install.sh` | installs and updates it |
+| `install.sh`, `update.sh` | install it, update it (`owl-desktop update`), `install.sh --uninstall` |
 | `bin/omarchy-widgets`, `starter/` | Omalauncher's desktop app's store command and starter widgets (MIT) |

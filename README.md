@@ -11,9 +11,11 @@
 curl -fsSL https://raw.githubusercontent.com/johannSo/omarchy-owl-desktop/main/install.sh | bash
 ```
 
-This clones the repo to `~/.local/share/owl-desktop`, installs any missing packages, puts `owl-desktop` in `~/.local/bin`, starts the widgets with Hyprland and starts them now. Run it again to update. You can also run `./install.sh` from a clone. To skip a step, pass `--no-autostart` or `--no-start` (through curl: `| bash -s -- --no-autostart`).
+This clones the repo to `~/.local/share/owl-desktop`, installs any missing packages, puts `owl-desktop` in `~/.local/bin`, starts the widgets with Hyprland and starts them now. You can also run `./install.sh` from a clone. To skip a step, pass `--no-autostart` or `--no-start` (through curl: `| bash -s -- --no-autostart`).
 
-To uninstall, pass `--uninstall`. It stops the widgets, takes them out of autostart, and removes the command and the clone. Your widgets, style and layout stay.
+To update, run `owl-desktop update` (or `update.sh`). It pulls the latest version and restarts the widgets if they're running, and leaves autostart as you set it.
+
+To uninstall, pass `--uninstall` to `install.sh`. It stops the widgets, takes them out of autostart, and removes the command and the clone. Your widgets, style and layout stay.
 
 Hold or right-click a widget to arrange the desktop. `owl-desktop help` lists the commands, and [docs/USAGE.md](docs/USAGE.md) explains everything else.
 

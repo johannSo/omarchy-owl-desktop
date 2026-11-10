@@ -13,6 +13,7 @@
 #   owl-desktop logs                   what the desktop has logged
 #   owl-desktop autostart [on|off]     start with Hyprland (~/.config/hypr/autostart.lua)
 #   owl-desktop link                   put owl-desktop on your PATH (~/.local/bin)
+#   owl-desktop update                 pull the latest version, and restart the widgets if they run
 #
 # The store and your agent, as Omalauncher's desktop app has them:
 #
@@ -39,7 +40,7 @@ STYLE=$CONFIG/style.toml
 AUTOSTART=${XDG_CONFIG_HOME:-$HOME/.config}/hypr/autostart.lua
 
 die() { echo "$me: $*" >&2; exit 1; }
-usage() { sed -n '5,30p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '5,31p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 is not installed${2:+ ($2)}"; }
 tilde() { [[ $1 == "$HOME"* ]] && echo "~${1#"$HOME"}" || echo "$1"; }
 
@@ -173,6 +174,7 @@ case $cmd in
   logs) need quickshell; quickshell log -p "$APP" "$@" ;;
   autostart) cmd_autostart "$@" ;;
   link) cmd_link ;;
+  update) exec bash "$APP/update.sh" "$@" ;;
   folder) echo "$DIR" ;;
   install | remove | new | import | starter) widgets "$cmd" "$@" ;;
   packages | edit | share | publish | check)

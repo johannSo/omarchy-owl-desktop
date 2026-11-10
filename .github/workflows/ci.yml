@@ -21,17 +21,22 @@ jobs:
       # Any warning fails, but two: var in a block (style), and Quickshell's
       # PanelWindow, which qmllint takes for the uncreatable interface in
       # Quickshell instead of the window Quickshell.Wayland provides.
+      # Its text output leaves some out, so on failure this prints the report.
       - name: qmllint
-        run: >-
-          /usr/lib/qt6/bin/qmllint --max-warnings 0
-          --block-scope-var-declaration disable --uncreatable-type disable
-          *.qml
+        run: |
+          /usr/lib/qt6/bin/qmllint --max-warnings 0 --json lint.json \
+            --block-scope-var-declaration disable --uncreatable-type disable *.qml || {
+            jq -r '.files[] | (.filename | split("/") | last) as $f | .warnings[]
+              | select(.id != "block-scope-var-declaration" and .id != "uncreatable-type")
+              | "\($f):\(.line):\(.column) \(.type) [\(.id)] \(.message | split("\n")[0])"' lint.json
+            exit 1
+          }
 
       - name: shellcheck
-        run: shellcheck --severity=warning install.sh bin/owl-desktop test/install.test.sh
+        run: shellcheck --severity=warning install.sh update.sh bin/owl-desktop test/install.test.sh
 
-      # install.sh won't run as root.
-      - name: install.sh
+      # install.sh and update.sh won't run as root.
+      - name: install.sh and update.sh
         run: |
           useradd -m tester
           cp -r . /home/tester/repo
