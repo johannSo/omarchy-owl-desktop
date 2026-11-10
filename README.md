@@ -11,7 +11,7 @@
 curl -fsSL https://raw.githubusercontent.com/johannSo/omarchy-owl-desktop/main/install.sh | bash
 ```
 
-This clones the repo to `~/.local/share/owl-desktop`, installs any missing packages, puts `owl-desktop` in `~/.local/bin`, starts the widgets with Hyprland and starts them now. You can also run `./install.sh` from a clone. To skip a step, pass `--no-autostart` or `--no-start` (through curl: `| bash -s -- --no-autostart`).
+This clones the repo to `~/.local/share/owl-desktop`, installs any missing packages, puts `owl-desktop` in `~/.local/bin`, adds it to Hyprland's autostart (`~/.config/hypr/autostart.lua`) so it starts with every session, and starts the widgets now. You can also run `./install.sh` from a clone. To skip a step, pass `--no-autostart` or `--no-start` (through curl: `| bash -s -- --no-autostart`).
 
 To update, run `owl-desktop update` (or `update.sh`). It pulls the latest version and restarts the widgets if they're running, and leaves autostart as you set it.
 

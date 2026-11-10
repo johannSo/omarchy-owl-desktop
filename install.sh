@@ -99,22 +99,31 @@ else
   git clone -q --depth 1 -b "$BRANCH" "$REPO" "$app"
 fi
 
-chmod +x "$app/bin/owl-desktop" "$app/bin/omarchy-widgets" "$app/owl/owl-source"
+chmod +x "$app/bin/owl-desktop" "$app/bin/omarchy-widgets" "$app/owl/owl-source" "$app/install.sh" "$app/update.sh"
 owl="$app/bin/owl-desktop"
 
-# 3. The command.
+# 3. The command. The install it pointed to before, if that was another one,
+#    is the one running now.
+link=$HOME/.local/bin/owl-desktop
+before=""
+if [[ -L $link && $(readlink -- "$link") == */bin/owl-desktop ]]; then
+  before=$(readlink -f -- "$link")
+  [[ -f $before && $before != "$(readlink -f -- "$owl")" ]] || before=""
+fi
 "$owl" link
 case ":$PATH:" in
   *":$HOME/.local/bin:"*) ;;
   *) echo "note: ~/.local/bin isn't on your PATH; add it, or run $owl" ;;
 esac
 
-# 4. With every Hyprland session.
+# 4. With every Hyprland session: Omarchy runs autostart.lua's
+#    launch_on_start lines once, as Hyprland starts.
 if ((autostart)); then "$owl" autostart on; fi
 
-# 5. Now.
+# 5. Now, and only once: another install stops first, or both would draw.
 if ((start)); then
   if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
+    if [[ -n $before ]]; then bash "$before" stop >/dev/null || true; fi
     "$owl" restart
   else
     echo "not in a Wayland session: run owl-desktop start from Hyprland"

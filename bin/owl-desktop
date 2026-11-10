@@ -110,7 +110,13 @@ cmd_start() {
 cmd_stop() {
   running || { echo "the desktop widgets aren't running"; return 0; }
   quickshell kill -p "$APP" >/dev/null
-  echo "stopped"
+  # It takes a moment to go; start again before that and start does nothing.
+  local _
+  for _ in $(seq 1 50); do
+    running || { echo "stopped"; return 0; }
+    sleep 0.1
+  done
+  die "it didn't stop; quickshell list -p $(tilde "$APP") shows it"
 }
 
 cmd_status() {
