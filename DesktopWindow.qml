@@ -232,6 +232,28 @@ PanelWindow {
     win.save(next, [file])
     win.selected = ""
   }
+  // A tile's own look: its opacity a step clearer or more solid, its outline on or off.
+  function setLook(file, opacity, border) {
+    var next = Layout.look(win.cells, file, opacity, border)
+    if (next) win.save(next, [file])
+    return !!next
+  }
+  function stepOpacity(file, by) {
+    var c = win.cells[file]
+    if (!c) return
+    var now = typeof c.opacity === "number" ? c.opacity : win.style.opacity
+    win.setLook(file, Math.max(0, Math.min(1, Math.round((now + by) * 20) / 20)), c.border !== false)
+  }
+  function toggleOutline(file) {
+    var c = win.cells[file]
+    if (c) win.setLook(file, typeof c.opacity === "number" ? c.opacity : null, c.border === false)
+  }
+  function resetLook(file) { win.setLook(file, null, true) }
+  function hasLook(file) {
+    var c = win.cells[file]
+    return !!c && (typeof c.opacity === "number" || c.border === false)
+  }
+
   function showTile(file) {
     var t = win.tileFor(file)
     var next = Layout.show(win.cells, file, t ? t.owl.size : [3, 2], t && t.owl.isFace, win.columns, win.rows, win.files)
@@ -454,12 +476,16 @@ PanelWindow {
         id: tileActions
         anchors.centerIn: parent
         spacing: 6
-        Btn { app: win.app; text: "Edit"; onClicked: win.edit() }
-        Btn { app: win.app; text: "Share"; onClicked: win.share() }
-        Btn { app: win.app; visible: Quickshell.screens.length > 1; text: "Next screen"; onClicked: { var f = win.selected; win.selected = ""; win.app.moveToNextScreen(f) } }
-        Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "Store page"; onClicked: win.app.openStore(win.selectedStoreId, win.app.storeKindFor(win.selected)) }
-        Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "Uninstall"; onClicked: win.uninstall() }
-        Btn { app: win.app; visible: win.selectedStoreId === ""; text: "Take off"; onClicked: win.hideTile(win.selected) }
+        Btn { app: win.app; text: "edit"; onClicked: win.edit() }
+        Btn { app: win.app; text: "share"; onClicked: win.share() }
+        Btn { app: win.app; text: "clearer"; onClicked: win.stepOpacity(win.selected, -0.1) }
+        Btn { app: win.app; text: "more solid"; onClicked: win.stepOpacity(win.selected, 0.1) }
+        Btn { app: win.app; text: actionBar.t && actionBar.t.outlined ? "no outline" : "outline"; onClicked: win.toggleOutline(win.selected) }
+        Btn { app: win.app; visible: win.hasLook(win.selected); text: "style's look"; onClicked: win.resetLook(win.selected) }
+        Btn { app: win.app; visible: Quickshell.screens.length > 1; text: "next screen"; onClicked: { var f = win.selected; win.selected = ""; win.app.moveToNextScreen(f) } }
+        Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "store page"; onClicked: win.app.openStore(win.selectedStoreId, win.app.storeKindFor(win.selected)) }
+        Btn { app: win.app; visible: win.selectedStoreId !== ""; text: "uninstall"; onClicked: win.uninstall() }
+        Btn { app: win.app; visible: win.selectedStoreId === ""; text: "remove"; onClicked: win.hideTile(win.selected) }
       }
     }
 
@@ -482,10 +508,10 @@ PanelWindow {
         id: footerRow
         anchors.centerIn: parent
         spacing: 6
-        Btn { app: win.app; text: "Create"; onClicked: win.app.create() }
-        Btn { app: win.app; text: "Store"; onClicked: win.app.openStore("", "") }
-        Btn { app: win.app; text: "Style"; onClicked: win.app.editStyle() }
-        Btn { app: win.app; text: "Folder"; onClicked: Quickshell.execDetached(["xdg-open", win.app.dir]) }
+        Btn { app: win.app; text: "create with an agent"; onClicked: win.app.create() }
+        Btn { app: win.app; text: "browse store"; onClicked: win.app.openStore("", "") }
+        Btn { app: win.app; text: "style"; onClicked: win.app.editStyle() }
+        Btn { app: win.app; text: "folder"; onClicked: Quickshell.execDetached(["xdg-open", win.app.dir]) }
         Repeater {
           model: win.hiddenFiles.concat(win.waitingFiles)
           delegate: Btn {
@@ -499,12 +525,12 @@ PanelWindow {
           anchors.verticalCenter: parent.verticalCenter
           leftPadding: 6
           rightPadding: 6
-          text: "Drag a tile to move it, an edge to resize it. Click beside the tiles when you're done."
+          text: "drag a tile to move it, an edge to resize it; click beside the tiles when you're done"
           color: win.app.ink("muted")
           font.family: win.app.font
           font.pixelSize: 12
         }
-        Btn { app: win.app; primary: true; text: "Done"; onClicked: win.finishEditing() }
+        Btn { app: win.app; primary: true; text: "done"; onClicked: win.finishEditing() }
       }
     }
 

@@ -25,6 +25,19 @@ test("first fit stays on the screen and gives up when it is full", () => {
   assert.deepEqual(L.firstFit({}, 9, 9, 4, 3), { x: 0, y: 0, w: 4, h: 3 })
 })
 
+test("a tile's own look stays with it when it moves, resizes, hides and comes back", () => {
+  let cells = L.look({ a: { x: 0, y: 0, w: 2, h: 2 } }, "a", 0.5, false)
+  assert.deepEqual(cells.a, { x: 0, y: 0, w: 2, h: 2, opacity: 0.5, border: false })
+  cells = L.move(cells, "a", 1, 1, 6, 6)
+  cells = L.resize(cells, "a", 3, 2, [1, 1], 6, 6)
+  cells = L.place(cells, "a", { x: 0, y: 0, w: 2, h: 2 }, 6, 6)
+  cells = L.show(L.hide(cells, "a"), "a", [2, 2], false, 6, 6)
+  assert.deepEqual(cells.a, { x: 0, y: 0, w: 2, h: 2, opacity: 0.5, border: false })
+  assert.deepEqual(L.look(cells, "a", null, true).a, { x: 0, y: 0, w: 2, h: 2 })
+  assert.equal(L.look(cells, "a", 2, true), null)
+  assert.equal(L.look(cells, "b", 0.5, true), null)
+})
+
 test("settle places only widgets whose size is known, keeping the rest", () => {
   const r = L.settle({ a: { x: 0, y: 0, w: 2, h: 2 } }, ["a", "b", "c"], { b: { size: [3, 1] } }, 6, 6)
   assert.deepEqual(r.cells.b, { x: 2, y: 0, w: 3, h: 1 })

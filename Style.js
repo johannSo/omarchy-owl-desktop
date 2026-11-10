@@ -1,8 +1,9 @@
 .pragma library
 
 // How the desktop's widgets look: ~/.config/owl-desktop/style.toml, with
-// Omalauncher's own names, defaults and ranges (theme/Style.kt in omalauncher)
-// where the phone has the setting, and [desktop] for what only a desktop needs.
+// OmaLauncher++'s own names, defaults and ranges (theme/Style.kt in
+// omalauncher.pp) where the phone has the setting, and [desktop] for what only
+// a desktop needs.
 
 var DEFAULTS = {
   // Space in dp between two widgets, and from them to the screen's edges.
@@ -15,6 +16,8 @@ var DEFAULTS = {
   // "theme" is the theme's border color (its muted) and accent; else a theme color name or #rrggbb.
   border: "theme",
   borderFocused: "theme",
+  // Multiplies every frame's corner radius, as OmaLauncher++'s corners.scale: 0 square (Omarchy), 0.5 soft, 1 round.
+  cornerScale: 0,
   // px per dp: how big everything is drawn. 1 is the launcher's size on a phone at its density.
   scale: 1,
   // A grid cell in dp, the gap after it included: the launcher's.
@@ -34,6 +37,7 @@ var KEYS = {
   "widgets.border-width": ["borderWidth", 0, 8],
   "widgets.border": ["border"],
   "widgets.border-focused": ["borderFocused"],
+  "corners.scale": ["cornerScale", 0, 2],
   "desktop.scale": ["scale", 0.5, 4],
   "desktop.cell": ["cell", 40, 200],
   "desktop.folder": ["folder"],
@@ -77,7 +81,7 @@ function parse(text) {
 
 var TEMPLATE = [
   "# How the desktop's OWL widgets look. Saved changes apply at once.",
-  "# The [widgets] settings are Omalauncher's (its style.toml), with its defaults.",
+  "# The [widgets] and [corners] settings are OmaLauncher++'s (its style.toml), with its defaults.",
   "",
   "[widgets]",
   "gaps-in = 6            # dp between two widgets (0-24)",
@@ -86,6 +90,9 @@ var TEMPLATE = [
   "border-width = 2       # widgets' outlines in dp; 0 draws none (0-8)",
   "border = \"theme\"       # \"theme\" (the theme's muted), a theme color like \"accent\", or \"#rrggbb\"",
   "border-focused = \"theme\" # the widget being typed into or arranged: \"theme\" is the accent",
+  "",
+  "[corners]",
+  "scale = 0              # every frame's corner radius: 0 square (Omarchy), 0.5 soft, 1 round (0-2)",
   "",
   "[desktop]",
   "scale = 1              # px per dp: 1.25 draws everything a quarter bigger",

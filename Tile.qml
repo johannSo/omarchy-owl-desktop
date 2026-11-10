@@ -104,11 +104,19 @@ Item {
 
   // ------------------------------------------------------------ the widget
 
+  // The tile's own look, when its place in the layout has one, over the
+  // style's: OmaLauncher++'s `opacity` and `border = false` on a tile.
+  readonly property real glass: tile.cell && typeof tile.cell.opacity === "number" ? tile.cell.opacity : tile.style.opacity
+  readonly property bool outlined: !(tile.cell && tile.cell.border === false)
+  // A frame's corners: the launcher's 16 dp, times corners.scale (0 is square).
+  readonly property real corner: 16 * tile.style.cornerScale * tile.dp
+
   // The glass: the theme's background, as much as widgets.opacity says.
   Rectangle {
     anchors.fill: parent
     visible: !tile.face
-    color: tile.app.alpha(tile.app.ink("background"), tile.style.opacity)
+    radius: tile.corner
+    color: tile.app.alpha(tile.app.ink("background"), tile.glass)
   }
 
   // The widget's own `background:`, over the glass: a color, or since owl 10 a gradient.
@@ -125,7 +133,7 @@ Item {
     anchors.margins: (live.program ? live.program.padding : 12) * tile.dp
     path: tile.app.dir + "/" + tile.file
     host: tile.host
-    palette: tile.app.palette
+    palette: tile.app.owlPalette
     active: tile.desk.active && tile.placed && tile.missing.length === 0
     cols: tile.cols
     rows: tile.rowCount
@@ -232,7 +240,8 @@ Item {
   // the focused width in the accent.
   Rectangle {
     anchors.fill: parent
-    visible: !tile.face && (tile.focused || tile.style.borderWidth > 0)
+    visible: !tile.face && (tile.focused || (tile.outlined && tile.style.borderWidth > 0))
+    radius: tile.corner
     color: "transparent"
     border.width: (tile.focused ? Math.max(tile.style.borderWidth, 2) : tile.style.borderWidth) * tile.dp
     border.color: tile.focused ? tile.app.settingColor(tile.style.borderFocused, "accent") : tile.app.settingColor(tile.style.border, "muted")

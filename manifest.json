@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.johannso.owl-desktop",
+  "name": "OmaLauncher++ Desktop",
+  "version": "2.0.0",
+  "author": "johannSo",
+  "license": "MIT",
+  "description": "OmaLauncher++'s OWL widgets on your desktop: over the wallpaper, under the windows, on the launcher's home grid, in your theme, with its widget store.",
+  "kinds": [
+    "service"
+  ],
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

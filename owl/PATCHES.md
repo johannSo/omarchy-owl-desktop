@@ -13,7 +13,7 @@ It is used as it is, but for one line:
   do-not-disturb (`omarchy-shell notifications isDnd`); upstream reads mako's,
   which Omarchy 4.5 no longer runs.
 
-Everything else the desktop needs is in the host (`shell.qml`'s `OwlHost`),
+Everything else the desktop needs is in the host (`Service.qml`'s `OwlHost`),
 which overrides what Omarchy does its own way: the terminal, `ask()` with the
 default agent, `launcher()`, `media()` through MPRIS and `dnd()`.
 

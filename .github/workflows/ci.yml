@@ -45,12 +45,14 @@ jobs:
           }
 
       - name: shellcheck
-        run: shellcheck --severity=warning install.sh update.sh bin/owl-desktop test/install.test.sh
+        run: shellcheck --severity=warning bin/owl-desktop test/plugin.test.sh
 
-      # install.sh and update.sh won't run as root.
-      - name: install.sh and update.sh
+      # The manifest and the folder as the shell and the marketplace take
+      # them, and the command with no shell running. Not as root: the checkout
+      # is root's here, and the test wants a home of its own.
+      - name: Plugin
         run: |
           useradd -m tester
           cp -r . /home/tester/repo
           chown -R tester: /home/tester/repo
-          runuser -u tester -- env HOME=/home/tester bash /home/tester/repo/test/install.test.sh
+          runuser -u tester -- env HOME=/home/tester bash /home/tester/repo/test/plugin.test.sh

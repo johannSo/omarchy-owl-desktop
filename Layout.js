@@ -2,7 +2,7 @@
 
 // Where each widget sits on a monitor's grid, as pure functions over a map of
 //
-//   { "<file, relative to the widget folder>": { x, y, w, h, hidden? } }
+//   { "<file, relative to the widget folder>": { x, y, w, h, hidden?, opacity?, border? } }
 //
 // in grid cells, one map per monitor. A face (a whole page, `face "…" { }`)
 // takes the whole grid behind the tiles and is kept as { face: true, hidden? }:
@@ -17,6 +17,28 @@
 // QML, so test/layout.test.mjs runs it under node.
 
 function isFace(c) { return !!c && c.face === true }
+
+// A tile's own look, as OmaLauncher++ keeps it on a tile in home's layout:
+// `opacity` (0 clear to 1 solid, over widgets.opacity) and `border: false`
+// (no outline). It stays with the tile wherever the tile goes.
+function withLook(next, from) {
+  if (from && typeof from.opacity === "number") next.opacity = from.opacity
+  if (from && from.border === false) next.border = false
+  return next
+}
+
+// `file` with its own opacity (null: the style's again) and outline. Null when
+// there is no such tile, or the opacity isn't a number from 0 to 1.
+function look(cells, file, opacity, border) {
+  if (!cells[file]) return null
+  if (opacity !== null && !(typeof opacity === "number" && opacity >= 0 && opacity <= 1)) return null
+  var out = copy(cells)
+  delete out[file].opacity
+  delete out[file].border
+  if (opacity !== null) out[file].opacity = opacity
+  if (border === false) out[file].border = false
+  return out
+}
 
 function overlaps(a, b) {
   return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
@@ -104,7 +126,7 @@ function move(cells, file, x, y, columns, rows, present) {
   var next = { x: x, y: y, w: c.w, h: c.h }
   if (!valid(next, columns, rows) || !clear(cells, next, file, present)) return null
   var out = copy(cells)
-  out[file] = next
+  out[file] = withLook(next, c)
   return out
 }
 
@@ -115,7 +137,7 @@ function resize(cells, file, w, h, min, columns, rows, present) {
   var next = { x: c.x, y: c.y, w: Math.max(w, min[0]), h: Math.max(h, min[1]) }
   if (!valid(next, columns, rows) || !clear(cells, next, file, present)) return null
   var out = copy(cells)
-  out[file] = next
+  out[file] = withLook(next, c)
   return out
 }
 
@@ -135,7 +157,7 @@ function edge(c, edges, dx, dy, min, columns, rows) {
 function place(cells, file, next, columns, rows, present) {
   if (!cells[file] || isFace(cells[file]) || !valid(next, columns, rows) || !clear(cells, next, file, present)) return null
   var out = copy(cells)
-  out[file] = { x: next.x, y: next.y, w: next.w, h: next.h }
+  out[file] = withLook({ x: next.x, y: next.y, w: next.w, h: next.h }, cells[file])
   return out
 }
 
@@ -158,7 +180,7 @@ function show(cells, file, size, face, columns, rows, present) {
   }
   var at = firstFit(cells, size[0], size[1], columns, rows, file, present)
   if (!at) return null
-  out[file] = at
+  out[file] = withLook(at, cells[file])
   return out
 }
 
@@ -253,7 +275,7 @@ function changed(a, b) {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     isFace: isFace, overlaps: overlaps, valid: valid, clear: clear, firstFit: firstFit, faceShown: faceShown,
-    settle: settle, move: move, resize: resize, edge: edge, place: place, hide: hide, show: show,
+    settle: settle, look: look, move: move, resize: resize, edge: edge, place: place, hide: hide, show: show,
     grid: grid, rect: rect, colLine: colLine, rowLine: rowLine,
     emptyLayout: emptyLayout, normalize: normalize, savedScreen: savedScreen, screenFor: screenFor,
     withScreen: withScreen, without: without, changed: changed

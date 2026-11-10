@@ -14,3 +14,6 @@ can work as the phone's does:
 - `remove` moves the file to `.removed/` in the widget folder, as the phone
   does, rather than deleting it.
 - `starter/installed.json` has each starter file's SHA-256.
+- `open` and `toggle` open the plugin's store through the Omarchy shell
+  (`omarchy-shell owl-desktop store`) rather than starting the desktop app's
+  own Quickshell: a plugin must not start a second one.

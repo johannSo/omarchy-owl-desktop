@@ -140,10 +140,12 @@ missing_packages() {
 }
 
 cmd_open() {
-  # A running app answers its IPC; then this just raises it.
-  if quickshell ipc -p "$APPDIR/shell.qml" call app "${1:-open}" >/dev/null 2>&1; then exit 0; fi
+  # The desktop is the Omarchy shell's plugin: this opens its store, and never
+  # starts a Quickshell of its own.
   [[ ${1:-open} == close ]] && exit 0
-  exec quickshell -n -p "$APPDIR/shell.qml"
+  command -v omarchy-shell >/dev/null 2>&1 || die "the Omarchy shell isn't installed"
+  OMARCHY_PATH=${OMARCHY_PATH:-/usr/share/omarchy} omarchy-shell owl-desktop store "" >/dev/null ||
+    die "the plugin isn't loaded: owl-desktop enable"
 }
 
 cmd_install() {

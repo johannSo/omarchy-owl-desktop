@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 
-# owl-desktop: Omalauncher's OWL widgets on the Omarchy desktop.
+# owl-desktop: OmaLauncher++ Desktop, OWL widgets on the Omarchy desktop.
+# The widgets are drawn by the Omarchy shell, which loads this plugin.
 #
-#   owl-desktop start                  show the widgets (in the background; does nothing when they show)
-#   owl-desktop stop | restart         take them off the desktop, or start them again
-#   owl-desktop status                 whether it's running, and where everything is
+#   owl-desktop enable | disable       show the widgets, or take them off the desktop (start, stop)
+#   owl-desktop status                 whether the plugin is enabled, and where everything is
 #   owl-desktop arrange [<file>]       arrange the desktop, as holding a widget does (done, toggle)
 #   owl-desktop list                   the widgets: where they are, and what's wrong with them
 #   owl-desktop screen <file>          open a widget's screen { }
 #   owl-desktop store [<author/name>]  the store, or the page of a widget or face in it
+#   owl-desktop look <file> [--opacity <0-1>|--opacity style] [--border on|off]
+#                                      one widget's own look, over the style's
 #   owl-desktop reload                 read the folder, the style and every widget again
 #   owl-desktop style                  edit ~/.config/owl-desktop/style.toml
-#   owl-desktop logs                   what the desktop has logged
-#   owl-desktop autostart [on|off]     start with Hyprland (~/.config/hypr/autostart.lua)
+#   owl-desktop logs                   what the Omarchy shell has logged
 #   owl-desktop link                   put owl-desktop on your PATH (~/.local/bin)
-#   owl-desktop update                 pull the latest version, and restart the widgets if they run
+#   owl-desktop update                 update the plugin (omarchy plugin update)
+#   owl-desktop migrate                stop the standalone owl-desktop 1.x and take it out of Hyprland's autostart
 #
 # The store and your agent, as Omalauncher's desktop app has them:
 #
@@ -34,14 +36,17 @@
 set -euo pipefail
 
 me=owl-desktop
+ID=io.github.johannso.owl-desktop
+TARGET=owl-desktop
 APP=$(cd -- "$(dirname -- "$(readlink -f -- "$0")")/.." && pwd)
 CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/owl-desktop
 STATE=${XDG_STATE_HOME:-$HOME/.local/state}/owl-desktop
 STYLE=$CONFIG/style.toml
 AUTOSTART=${XDG_CONFIG_HOME:-$HOME/.config}/hypr/autostart.lua
+export OMARCHY_PATH=${OMARCHY_PATH:-/usr/share/omarchy}
 
 die() { echo "$me: $*" >&2; exit 1; }
-usage() { sed -n '5,32p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '3,34p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 is not installed${2:+ ($2)}"; }
 tilde() { [[ $1 == "$HOME"* ]] && echo "~${1#"$HOME"}" || echo "$1"; }
 
@@ -59,11 +64,13 @@ folder() {
 }
 DIR=$(folder)
 
-running() { quickshell list -p "$APP" 2>/dev/null | grep -q "^Instance"; }
+# The plugin answers once the shell has loaded it.
+running() { command -v omarchy-shell >/dev/null 2>&1 && omarchy-shell "$TARGET" status >/dev/null 2>&1; }
 
 ipc() {
-  running || die "the desktop widgets aren't running: owl-desktop start"
-  quickshell ipc -p "$APP" call owl-desktop "$@"
+  need omarchy-shell "the Omarchy shell, Omarchy 4.5 or newer"
+  running || die "the plugin isn't loaded: owl-desktop enable"
+  omarchy-shell "$TARGET" "$@"
 }
 
 # A file as the desktop knows it: relative to the widget folder.
@@ -86,69 +93,68 @@ absolute() {
 
 widgets() { OWL_WIDGETS=$DIR OMARCHY_WIDGETS_APP=$APP exec "$APP/bin/omarchy-widgets" "$@"; }
 
-cmd_run() {
-  need quickshell "pacman -S quickshell"
-  exec quickshell -n -p "$APP"
-}
-
-cmd_start() {
-  need quickshell "pacman -S quickshell"
-  if running; then echo "the desktop widgets are running"; return 0; fi
-  mkdir -p "$STATE"
-  if command -v uwsm-app >/dev/null 2>&1 && [[ -n ${WAYLAND_DISPLAY:-} ]]; then
-    setsid -f uwsm-app -- "$APP/bin/owl-desktop" run >/dev/null 2>&1 </dev/null
-  else
-    setsid -f quickshell -n -p "$APP" >/dev/null 2>&1 </dev/null
-  fi
+cmd_enable() {
+  need omarchy "Omarchy 4.5 or newer"
+  omarchy plugin enable "$ID"
   local _
   for _ in $(seq 1 50); do
-    running && { echo "the desktop widgets are running: $(tilde "$DIR")"; return 0; }
+    running && { echo "the desktop widgets are showing: $(tilde "$DIR")"; return 0; }
     sleep 0.1
   done
-  die "it didn't start; owl-desktop logs says why"
+  die "the shell didn't load the plugin; owl-desktop logs says why"
 }
 
-cmd_stop() {
-  running || { echo "the desktop widgets aren't running"; return 0; }
-  quickshell kill -p "$APP" >/dev/null
-  # It takes a moment to go; start again before that and start does nothing.
-  local _
-  for _ in $(seq 1 50); do
-    running || { echo "stopped"; return 0; }
-    sleep 0.1
-  done
-  die "it didn't stop; quickshell list -p $(tilde "$APP") shows it"
+cmd_disable() {
+  need omarchy "Omarchy 4.5 or newer"
+  omarchy plugin disable "$ID"
+  echo "the desktop widgets are off; your widgets, style and layout stay"
 }
 
 cmd_status() {
-  if running; then echo "running"; else echo "not running"; fi
+  local info=""
+  if running; then
+    info=$(omarchy-shell "$TARGET" status)
+    echo "enabled (version $(jq -r '.version' <<<"$info"), $(jq -r '.widgets' <<<"$info") widgets)"
+  else
+    echo "not loaded (owl-desktop enable)"
+  fi
   echo "widgets:   $(tilde "$DIR")"
   echo "style:     $(tilde "$STYLE")"
   echo "layout:    $(tilde "$STATE/layout.json")"
+  echo "plugin:    $(tilde "$APP")"
   echo "runtime:   $(tilde "$APP/owl") ($(sed -n 's/^runtimes\/quickshell //p' "$APP/owl/VERSION"))"
-  if grep -qs 'owl-desktop' "$AUTOSTART"; then echo "autostart: on"; else echo "autostart: off (owl-desktop autostart on)"; fi
   command -v inotifywait >/dev/null 2>&1 || echo "note: without inotify-tools, new files show within two seconds instead of at once"
+  if grep -qs 'owl-desktop' "$AUTOSTART"; then echo "note: the standalone owl-desktop 1.x is still in $(tilde "$AUTOSTART"); owl-desktop migrate takes it out"; fi
 }
 
-cmd_autostart() {
-  local want=${1:-on}
-  [[ $want == on || $want == off ]] || usage
-  local line="o.launch_on_start(\"$APP/bin/owl-desktop run\")"
-  if [[ $want == on ]]; then
-    grep -qsF "$line" "$AUTOSTART" && { echo "already starts with Hyprland ($(tilde "$AUTOSTART"))"; return 0; }
-    mkdir -p "$(dirname "$AUTOSTART")"
-    [[ -f $AUTOSTART ]] && cp "$AUTOSTART" "$AUTOSTART.bak.$(date +%s)"
-    # An older install somewhere else: start this one instead.
-    sed -i '/OWL widgets on the desktop (owl-desktop autostart off removes this)/d; /owl-desktop/d' "$AUTOSTART" 2>/dev/null || true
-    printf '\n-- OWL widgets on the desktop (owl-desktop autostart off removes this).\n%s\n' "$line" >>"$AUTOSTART"
-    echo "starts with Hyprland from now on ($(tilde "$AUTOSTART"))"
-  else
-    grep -qs 'owl-desktop' "$AUTOSTART" || { echo "doesn't start with Hyprland"; return 0; }
-    cp "$AUTOSTART" "$AUTOSTART.bak.$(date +%s)"
-    sed -i '/OWL widgets on the desktop (owl-desktop autostart off removes this)/d; /owl-desktop/d' "$AUTOSTART"
-    echo "no longer starts with Hyprland"
+# owl-desktop 1.x was a Quickshell instance of its own, started by a line in
+# Hyprland's autostart. The plugin replaces both; this asks before it changes
+# autostart.lua, and keeps a copy.
+cmd_migrate() {
+  local found=0 path
+  if command -v quickshell >/dev/null 2>&1; then
+    while IFS= read -r path; do
+      # Only a Quickshell instance run from an owl-desktop checkout: never the Omarchy shell.
+      [[ -n $path && -f $path/bin/owl-desktop ]] || continue
+      found=1
+      quickshell kill -p "$path" >/dev/null 2>&1 && echo "stopped the standalone widgets ($(tilde "$path"))"
+    done < <(pgrep -a quickshell | sed -n 's/.* -p \([^ ]*\).*/\1/p' | sort -u)
   fi
-  command -v hyprctl >/dev/null 2>&1 && hyprctl configerrors 2>/dev/null | grep -v '^$' | grep -iv 'no errors' >&2 || true
+  if grep -qs 'owl-desktop' "$AUTOSTART"; then
+    found=1
+    local answer=y
+    if [[ ${1:-} != --yes ]]; then
+      read -r -p "Remove owl-desktop's lines from $(tilde "$AUTOSTART")? A copy is kept. [y/N] " answer || answer=n
+    fi
+    if [[ $answer == [yY]* ]]; then
+      cp "$AUTOSTART" "$AUTOSTART.bak.$(date +%s)"
+      sed -i '/OWL widgets on the desktop (owl-desktop autostart off removes this)/d; /owl-desktop/d' "$AUTOSTART"
+      echo "no longer starts with Hyprland on its own; the Omarchy shell loads the plugin"
+    else
+      echo "left $(tilde "$AUTOSTART") as it is"
+    fi
+  fi
+  ((found)) || echo "nothing of owl-desktop 1.x is left"
 }
 
 cmd_link() {
@@ -157,13 +163,34 @@ cmd_link() {
   echo "linked ~/.local/bin/owl-desktop"
 }
 
-cmd=${1:-start}
+cmd_look() {
+  (($# >= 1)) || usage
+  local f opacity border current
+  f=$(relative "$1")
+  shift
+  current=$(ipc list | jq -c --arg f "$f" '.[] | select(.file == $f) | .cell // {}' | head -1)
+  [[ -n $current ]] || die "$f isn't on the desktop"
+  opacity=$(jq -r '.opacity // ""' <<<"$current")
+  border=$(jq -r 'if .border == false then "off" else "on" end' <<<"$current")
+  while (($#)); do
+    case $1 in
+      --opacity) [[ -n ${2:-} ]] || usage; opacity=$2; [[ $opacity == style ]] && opacity=""; shift 2 ;;
+      --border) [[ ${2:-} == on || ${2:-} == off ]] || usage; border=$2; shift 2 ;;
+      *) usage ;;
+    esac
+  done
+  local answer
+  answer=$(ipc look "$f" "$opacity" "$border")
+  [[ $answer == ok ]] || die "$answer"
+  echo "ok"
+}
+
+cmd=${1:-status}
 (($#)) && shift
 case $cmd in
-  run) cmd_run ;;
-  start) cmd_start ;;
-  stop) cmd_stop ;;
-  restart) cmd_stop; cmd_start ;;
+  enable | start) cmd_enable ;;
+  disable | stop) cmd_disable ;;
+  restart) cmd_disable >/dev/null; cmd_enable ;;
   status) cmd_status ;;
   arrange)
     f=""
@@ -180,13 +207,14 @@ case $cmd in
   store)
     (($# <= 1)) || usage
     ipc store "${1:-}" ;;
+  look) cmd_look "$@" ;;
   style)
     mkdir -p "$CONFIG"
     if running; then ipc style; else exec "${VISUAL:-${EDITOR:-xdg-open}}" "$STYLE"; fi ;;
-  logs) need quickshell; quickshell log -p "$APP" "$@" ;;
-  autostart) cmd_autostart "$@" ;;
+  logs) need qs "quickshell"; qs log -p "$OMARCHY_PATH/shell" "$@" ;;
   link) cmd_link ;;
-  update) exec bash "$APP/update.sh" "$@" ;;
+  update) need omarchy "Omarchy 4.5 or newer"; exec omarchy plugin update "$ID" "$@" ;;
+  migrate) cmd_migrate "$@" ;;
   folder) echo "$DIR" ;;
   install | remove | new | import | starter) widgets "$cmd" "$@" ;;
   packages | edit | share | publish | check)
