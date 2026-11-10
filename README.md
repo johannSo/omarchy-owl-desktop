@@ -126,16 +126,7 @@ delete the old clone (`~/.local/share/owl-desktop`) afterwards.
 
 ## ToDo
 
-- [x] First run in a live Hyprland session (1.x).
-- [x] Compare it with the launcher in screenshots: tiles, grid, error tiles and the screen panel (1.x).
-- [x] Check that clicks between tiles still reach the wallpaper (1.x).
-- [x] Check that widgets pause behind tiled windows and that popups take input (1.x).
-- [x] Run the service the way the shell creates it, in a scratch Quickshell: starters, layout, IPC, a widget's own look, unloading.
-- [ ] Run it enabled in the Omarchy shell itself for a day: hot reload, disable and enable, a shell restart.
-- [ ] Test with more than one monitor: per-monitor layouts and next screen.
-- [ ] Check the store on a narrow screen (a high `desktop.scale`), where a page takes the grid's place.
 - [ ] The store's official tab: the widgets that come with OmaLauncher++.
-- [ ] A new `preview.png` showing a widget's own look and round corners.
 
 ## License
 
