@@ -10,8 +10,18 @@ jobs:
     # Arch, as Omarchy is: qmllint needs Quickshell's own QML types.
     container: archlinux:latest
     steps:
+      # Omarchy's package repository ahead of Arch's, as Omarchy has it: its
+      # Quickshell is the one Omarchy runs, and Arch's has older QML types.
+      # Its packages are signed with Omarchy's key, taken by fingerprint.
       - name: Packages
-        run: pacman -Syu --noconfirm --needed git nodejs quickshell shellcheck curl jq perl inotify-tools
+        run: |
+          key=40DFB630FF42BCFFB047046CF0134EE680CAC571
+          pacman-key --init
+          pacman-key --recv-keys "$key" --keyserver hkps://keyserver.ubuntu.com
+          pacman-key --lsign-key "$key"
+          sed -i 's|^\[core\]$|[omarchy]\nServer = https://pkgs.omarchy.org/stable/$arch\n\n[core]|' /etc/pacman.conf
+          pacman -Syu --noconfirm --needed git nodejs quickshell shellcheck curl jq perl inotify-tools
+          pacman -Q quickshell
 
       - uses: actions/checkout@v4
 
