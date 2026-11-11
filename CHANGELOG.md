@@ -2,6 +2,12 @@
 
 The most important changes in each release.
 
+## Unreleased
+
+- Widgets' corners follow Hyprland's `decoration:rounding`, as its windows do,
+  and a widget's own `corners` with them. `corners.hyprland = false` in
+  `style.toml` goes back to `corners.scale`.
+
 ## 2.0.0 – 2026-11-10
 
 Rewritten as a plugin of the Omarchy shell (Omarchy 4.5's Quattro shell), and

@@ -22,8 +22,9 @@ line and no daemon of its own.
   it from an edge, remove it, put it back
 - **Each widget's own look**: its opacity and whether it has an outline, kept
   with its place, as OmaLauncher++ 2.5 keeps them in home's layout
-- **Corners**: `corners.scale` rounds every frame, 0 square like Omarchy to 1
-  round like stock Android
+- **Corners**: every frame is as round as Hyprland's windows
+  (`decoration:rounding`); `corners.hyprland = false` takes `corners.scale`
+  instead, 0 square to 1 round like stock Android
 - **The widget store**, as the launcher has it: every reviewed widget and face
   of [SimonSchubert/omarchy-widgets](https://github.com/SimonSchubert/omarchy-widgets),
   with what each installs and runs shown before you add it

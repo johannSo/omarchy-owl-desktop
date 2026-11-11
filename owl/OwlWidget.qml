@@ -216,8 +216,8 @@ Item {
       if (name === "screenInset") return 0
       // What the status bar, a cutout or a navigation bar at the side covers of an edge face (owl 14): none here.
       if (name === "screenTop" || name === "screenLeft" || name === "screenRight") return 0
-      // Omarchy's corners are square.
-      if (name === "corners") return 0
+      // The host's corner style (square unless it says otherwise).
+      if (name === "corners") return root.host.corners
       // The board's gaps and borders, and its tiles' glass (owl 12 and 13).
       if (name === "gapsIn" || name === "gapsOut" || name === "borderWidth" || name === "tileOpacity" || name === "tileFrost")
         return root.host[name]

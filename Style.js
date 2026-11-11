@@ -18,6 +18,8 @@ var DEFAULTS = {
   borderFocused: "theme",
   // Multiplies every frame's corner radius, as OmaLauncher++'s corners.scale: 0 square (Omarchy), 0.5 soft, 1 round.
   cornerScale: 0,
+  // Frames take Hyprland's decoration:rounding, as its windows do, and corners.scale is unused.
+  cornerHyprland: true,
   // px per dp: how big everything is drawn. 1 is the launcher's size on a phone at its density.
   scale: 1,
   // A grid cell in dp, the gap after it included: the launcher's.
@@ -38,6 +40,7 @@ var KEYS = {
   "widgets.border": ["border"],
   "widgets.border-focused": ["borderFocused"],
   "corners.scale": ["cornerScale", 0, 2],
+  "corners.hyprland": ["cornerHyprland"],
   "desktop.scale": ["scale", 0.5, 4],
   "desktop.cell": ["cell", 40, 200],
   "desktop.folder": ["folder"],
@@ -92,7 +95,8 @@ var TEMPLATE = [
   "border-focused = \"theme\" # the widget being typed into or arranged: \"theme\" is the accent",
   "",
   "[corners]",
-  "scale = 0              # every frame's corner radius: 0 square (Omarchy), 0.5 soft, 1 round (0-2)",
+  "hyprland = true        # frames are as round as Hyprland's windows (decoration:rounding)",
+  "scale = 0              # with hyprland = false: 0 square, 0.5 soft, 1 round (0-2)",
   "",
   "[desktop]",
   "scale = 1              # px per dp: 1.25 draws everything a quarter bigger",

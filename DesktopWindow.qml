@@ -434,6 +434,7 @@ PanelWindow {
       width: outlineRect.r.width
       height: outlineRect.r.height
       z: 5
+      radius: 16 * win.app.cornerScale * win.dp
       color: "transparent"
       border.width: Math.max(2, 3 * win.dp)
       border.color: win.app.settingColor(win.style.borderFocused, "accent")

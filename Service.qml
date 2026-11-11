@@ -80,6 +80,29 @@ Item {
     }
   }
 
+  // Hyprland's decoration:rounding in px, read at the start and whenever its
+  // config is loaded again (a theme change does that).
+  property real rounding: 0
+  Process {
+    id: roundingProc
+    running: true
+    command: ["hyprctl", "-j", "getoption", "decoration:rounding"]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var v = 0
+        try { v = Number(JSON.parse(text).int) } catch (e) {}
+        plugin.rounding = isFinite(v) && v > 0 ? v : 0
+      }
+    }
+  }
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) { if (String(event.name) === "configreloaded") roundingProc.running = true }
+  }
+  // The corner style as OWL's multiplier of the launcher's 16 dp: Hyprland's
+  // rounding, or corners.scale when corners.hyprland is off.
+  readonly property real cornerScale: plugin.style.cornerHyprland ? plugin.rounding / (16 * plugin.style.scale) : plugin.style.cornerScale
+
   // ------------------------------------------------------------ theme
 
   // OWL's names for the Omarchy palette, read straight from the theme as the
@@ -181,6 +204,7 @@ Item {
     borderWidth: plugin.style.borderWidth
     tileOpacity: plugin.style.opacity
     tileFrost: 0
+    corners: plugin.cornerScale
 
     function act(widget, name, args) {
       var a = args || []

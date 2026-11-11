@@ -20,7 +20,8 @@ it is, and the other way round. This project adds the desktop around it:
   from an edge, remove it, put it back
 - a widget's own look, as OmaLauncher++ keeps it on a tile: its opacity and
   whether it has an outline
-- `corners.scale`: every frame's corner radius, square by default
+- corners as round as Hyprland's windows (`decoration:rounding`), or
+  `corners.scale` of your own
 - `requires { pacman: [...] }`: a tile that needs a missing package says
   `needs jq` with an **install** button, as on the phone
 - clicks beside the tiles still reach the desktop (double-click for the
@@ -162,7 +163,8 @@ OmaLauncher++'s own, with its names and defaults:
 | `widgets.border-width` | 2 | the outline in dp; 0 draws none |
 | `widgets.border` | "theme" | the outline: the theme's muted, a theme color, or #rrggbb |
 | `widgets.border-focused` | "theme" | the widget being typed into or arranged: the accent |
-| `corners.scale` | 0 | multiplies every frame's corner radius: 0 square (Omarchy), 0.5 soft, 1 round |
+| `corners.hyprland` | true | frames are as round as Hyprland's windows (`decoration:rounding`), and widgets' `corners` follows |
+| `corners.scale` | 0 | with `corners.hyprland = false`, multiplies every frame's corner radius: 0 square (Omarchy), 0.5 soft, 1 round |
 | `desktop.scale` | 1 | px per dp: 1.25 draws everything a quarter bigger |
 | `desktop.cell` | 69 | a grid cell in dp, gap included |
 | `desktop.folder` | "~/.config/omarchy-widgets" | where the widgets are |

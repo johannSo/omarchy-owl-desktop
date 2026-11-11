@@ -39,6 +39,8 @@ QtObject {
   property real borderWidth: 2
   property real tileOpacity: 1
   property real tileFrost: 0
+  // The corner style widgets read as `corners`: 0 square, 0.5 soft, 1 round.
+  property real corners: 0
 
   // How many times a second an animated widget draws. The launcher draws at the display's rate; on a
   // phone that is a core's worth of JavaScript for one busy Canvas, so a shell picks what it can carry.

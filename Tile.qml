@@ -108,8 +108,8 @@ Item {
   // style's: OmaLauncher++'s `opacity` and `border = false` on a tile.
   readonly property real glass: tile.cell && typeof tile.cell.opacity === "number" ? tile.cell.opacity : tile.style.opacity
   readonly property bool outlined: !(tile.cell && tile.cell.border === false)
-  // A frame's corners: the launcher's 16 dp, times corners.scale (0 is square).
-  readonly property real corner: 16 * tile.style.cornerScale * tile.dp
+  // A frame's corners: Hyprland's rounding, or the launcher's 16 dp times corners.scale.
+  readonly property real corner: 16 * tile.app.cornerScale * tile.dp
 
   // The glass: the theme's background, as much as widgets.opacity says.
   Rectangle {
