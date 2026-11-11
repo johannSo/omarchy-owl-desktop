@@ -120,7 +120,8 @@ its look (below), remove (uninstall for one from the store, with store page)
 and, with more monitors, next screen.
 
 `owl-desktop arrange` starts arranging on the focused monitor without a
-click, and `owl-desktop done` ends it. You may want a key for it in
+click, and `owl-desktop done` ends it; so does a window or a menu opening
+(the store, notifications and the OSD don't). You may want a key for it in
 `~/.config/hypr/bindings.lua`:
 
 ```lua

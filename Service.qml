@@ -28,7 +28,7 @@ Item {
   // What the shell hands a service: its plugin API and this plugin's manifest.
   property var shell: null
   property var manifest: null
-  readonly property string version: plugin.manifest && plugin.manifest.version ? String(plugin.manifest.version) : "2.0.0"
+  readonly property string version: plugin.manifest && plugin.manifest.version ? String(plugin.manifest.version) : "2.1.0"
 
   // ------------------------------------------------------------ places
 
@@ -553,6 +553,23 @@ Item {
   property string arrangingOn: ""
   property string arrangeFile: ""
 
+  // A window or a menu opening ends arranging, as the phone's home screen
+  // leaves it when something else comes up. Not the desktop's own layers (the
+  // store opens from the arranging bar), nor what only passes by or is always
+  // there: notifications, the OSD, the bar and the dock.
+  Connections {
+    target: Hyprland
+    enabled: plugin.arrangingOn !== ""
+    function onRawEvent(event) {
+      var name = String(event.name)
+      if (name === "openwindow" ||
+          (name === "openlayer" && !/^(owl-desktop|omarchy-(notifications|osd|bar|dock|background|reminders))/.test(String(event.data)))) {
+        plugin.arrangingOn = ""
+        plugin.arrangeFile = ""
+      }
+    }
+  }
+
   Variants {
     id: desktops
     model: Quickshell.screens
@@ -619,7 +636,7 @@ Item {
     // Where everything is, for owl-desktop status.
     function status(): string {
       return JSON.stringify({ version: plugin.version, folder: plugin.dir, style: styleFile.path, layout: plugin.layoutPath,
-                              plugin: plugin.appDir, widgets: plugin.files.length, watching: plugin.watching })
+                              plugin: plugin.appDir, widgets: plugin.files.length, watching: plugin.watching, arranging: plugin.arrangingOn })
     }
     // The store, or the page of one in it (author/name, a widget's or a face's).
     function store(id: string): string { plugin.openStore(id, ""); return plugin.storeOn ? "ok" : "no monitor" }

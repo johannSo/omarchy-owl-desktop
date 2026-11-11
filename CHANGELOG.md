@@ -2,12 +2,15 @@
 
 The most important changes in each release.
 
-## Unreleased
+## 2.1.0 – 2026-11-11
 
 - Corners follow Hyprland's `decoration:rounding`, as its windows do: the
   widgets, a widget's own `corners`, and everything else the desktop draws
-  (the store, a widget's `screen { }` panel, the arranging bars and buttons). `corners.hyprland = false` in
-  `style.toml` goes back to `corners.scale`.
+  (the store, a widget's `screen { }` panel, the arranging bars and buttons).
+  `corners.hyprland = false` in `style.toml` goes back to `corners.scale`.
+- Arranging ends when a window or a menu opens.
+- Restart the shell after an update (`omarchy-restart-shell`): it keeps
+  running the plugin's old code otherwise.
 
 ## 2.0.0 – 2026-11-10
 
