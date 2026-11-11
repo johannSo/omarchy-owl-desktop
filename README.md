@@ -61,7 +61,11 @@ explains everything else.
 
 ```sh
 omarchy plugin update io.github.johannso.owl-desktop
+omarchy-restart-shell
 ```
+
+The restart is needed: the shell reloads a changed plugin without restarting,
+but keeps running the code it had already loaded.
 
 ### Remove
 
