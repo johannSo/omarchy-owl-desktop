@@ -40,6 +40,7 @@ PanelWindow {
 
   Rectangle {
     id: card
+    radius: win.app.corner
     anchors.centerIn: parent
     width: Math.min(parent.width - 2 * win.gap, 400 * win.dp)
     height: parent.height - 2 * win.gap

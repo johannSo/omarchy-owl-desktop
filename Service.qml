@@ -102,6 +102,8 @@ Item {
   // The corner style as OWL's multiplier of the launcher's 16 dp: Hyprland's
   // rounding, or corners.scale when corners.hyprland is off.
   readonly property real cornerScale: plugin.style.cornerHyprland ? plugin.rounding / (16 * plugin.style.scale) : plugin.style.cornerScale
+  // That in px, for every frame the desktop draws: tiles, panels, bars and buttons.
+  readonly property real corner: 16 * plugin.cornerScale * plugin.style.scale
 
   // ------------------------------------------------------------ theme
 

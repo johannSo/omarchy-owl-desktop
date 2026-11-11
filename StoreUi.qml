@@ -4,6 +4,8 @@ import QtQuick
 // ThemePalette and TextSize), in px at the desktop's scale.
 QtObject {
   property real dp: 1
+  // Every frame's corner radius in px: the desktop's.
+  property real corner: 0
   property string font: "monospace"
   property color background
   property color surface

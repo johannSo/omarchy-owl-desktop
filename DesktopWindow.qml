@@ -401,6 +401,7 @@ PanelWindow {
         width: r.width
         height: r.height
         color: "transparent"
+        radius: win.app.corner
         border.width: 1
         border.color: win.app.alpha(win.app.ink("border"), 0.35)
       }
@@ -409,6 +410,7 @@ PanelWindow {
     // Where the tile being dragged would land.
     Rectangle {
       id: ghostRect
+      radius: win.app.corner
       property var cell: null
       property bool fits: false
       readonly property var r: ghostRect.cell ? win.cellRect(ghostRect.cell) : null
@@ -434,7 +436,7 @@ PanelWindow {
       width: outlineRect.r.width
       height: outlineRect.r.height
       z: 5
-      radius: 16 * win.app.cornerScale * win.dp
+      radius: win.app.corner
       color: "transparent"
       border.width: Math.max(2, 3 * win.dp)
       border.color: win.app.settingColor(win.style.borderFocused, "accent")
@@ -461,6 +463,7 @@ PanelWindow {
     // or below where there's no room; hidden while it's held.
     Rectangle {
       id: actionBar
+      radius: win.app.corner
       readonly property var t: win.editing && win.selected && !win.holding ? win.tileFor(win.selected) : null
       visible: !!actionBar.t && !actionBar.t.owl.isFace
       z: 6
@@ -493,6 +496,7 @@ PanelWindow {
     // While arranging: what the desktop can do, and the widgets that are off it.
     Rectangle {
       id: footer
+      radius: win.app.corner
       visible: win.editing
       z: 6
       anchors.horizontalCenter: parent.horizontalCenter
@@ -538,6 +542,7 @@ PanelWindow {
     // A line of news: what a command did, or why it didn't.
     Rectangle {
       visible: win.app.message !== "" && win.name === win.app.focusedScreen
+      radius: win.app.corner
       z: 7
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: footer.visible ? footer.top : parent.bottom

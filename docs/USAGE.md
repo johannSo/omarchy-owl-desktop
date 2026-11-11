@@ -163,7 +163,7 @@ OmaLauncher++'s own, with its names and defaults:
 | `widgets.border-width` | 2 | the outline in dp; 0 draws none |
 | `widgets.border` | "theme" | the outline: the theme's muted, a theme color, or #rrggbb |
 | `widgets.border-focused` | "theme" | the widget being typed into or arranged: the accent |
-| `corners.hyprland` | true | frames are as round as Hyprland's windows (`decoration:rounding`), and widgets' `corners` follows |
+| `corners.hyprland` | true | widgets, the store, panels, bars and buttons are as round as Hyprland's windows (`decoration:rounding`), and widgets' `corners` follows |
 | `corners.scale` | 0 | with `corners.hyprland = false`, multiplies every frame's corner radius: 0 square (Omarchy), 0.5 soft, 1 round |
 | `desktop.scale` | 1 | px per dp: 1.25 draws everything a quarter bigger |
 | `desktop.cell` | 69 | a grid cell in dp, gap included |

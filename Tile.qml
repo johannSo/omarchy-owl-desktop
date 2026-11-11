@@ -109,7 +109,7 @@ Item {
   readonly property real glass: tile.cell && typeof tile.cell.opacity === "number" ? tile.cell.opacity : tile.style.opacity
   readonly property bool outlined: !(tile.cell && tile.cell.border === false)
   // A frame's corners: Hyprland's rounding, or the launcher's 16 dp times corners.scale.
-  readonly property real corner: 16 * tile.app.cornerScale * tile.dp
+  readonly property real corner: tile.app.corner
 
   // The glass: the theme's background, as much as widgets.opacity says.
   Rectangle {
@@ -216,6 +216,7 @@ Item {
     Rectangle {
       width: installLabel.implicitWidth + 20 * tile.dp
       height: installLabel.implicitHeight + 12 * tile.dp
+      radius: tile.corner
       color: "transparent"
       border.width: Math.max(1, tile.dp)
       border.color: tile.app.ink("accent")
@@ -251,6 +252,7 @@ Item {
   Rectangle {
     anchors.fill: parent
     visible: tile.face && tile.isSelected
+    radius: tile.corner
     color: "transparent"
     border.width: Math.max(2, 3 * tile.dp)
     border.color: tile.app.settingColor(tile.style.borderFocused, "accent")

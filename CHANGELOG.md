@@ -4,8 +4,9 @@ The most important changes in each release.
 
 ## Unreleased
 
-- Widgets' corners follow Hyprland's `decoration:rounding`, as its windows do,
-  and a widget's own `corners` with them. `corners.hyprland = false` in
+- Corners follow Hyprland's `decoration:rounding`, as its windows do: the
+  widgets, a widget's own `corners`, and everything else the desktop draws
+  (the store, a widget's `screen { }` panel, the arranging bars and buttons). `corners.hyprland = false` in
   `style.toml` goes back to `corners.scale`.
 
 ## 2.0.0 – 2026-11-10

@@ -36,6 +36,7 @@ PanelWindow {
   // The launcher's colors and sizes for its screens (Theme.kt).
   readonly property StoreUi ui: StoreUi {
     dp: win.dp
+    corner: win.app.corner
     font: win.app.font
     background: win.app.phone.background
     surface: win.app.phone.surface
@@ -293,6 +294,7 @@ PanelWindow {
 
     Rectangle {
       id: frame
+      radius: win.ui.corner
       anchors.fill: parent
       anchors.margins: win.app.style.gapsOut * win.dp
       color: win.ui.background
@@ -352,6 +354,7 @@ PanelWindow {
               width: kinds.width + 2 * border.width
               height: kinds.height + 2 * border.width
               color: "transparent"
+              radius: win.ui.corner
               border.width: 1 * win.dp
               border.color: win.ui.border
               Row {
@@ -362,6 +365,7 @@ PanelWindow {
                   model: ["widget", "face"]
                   delegate: Rectangle {
                     id: segment
+                    radius: win.ui.corner
                     required property string modelData
                     readonly property bool on: segment.modelData === win.kind
                     width: label.implicitWidth + 24 * win.dp
@@ -440,6 +444,7 @@ PanelWindow {
 
             Rectangle {
               id: searchBox
+              radius: win.ui.corner
               width: parent.width
               height: search.implicitHeight + 24 * win.dp
               color: win.ui.surface
@@ -488,6 +493,7 @@ PanelWindow {
               model: win.tabList
               delegate: Rectangle {
                 id: chip
+                radius: win.ui.corner
                 required property var modelData
                 readonly property bool on: chip.modelData.name === win.tab
                 width: chipLabel.implicitWidth + 24 * win.dp
@@ -587,6 +593,7 @@ PanelWindow {
 
                 Rectangle {
                   id: card
+                  radius: win.ui.corner
                   width: cell.width - grid.gap
                   height: cell.height - grid.gap
                   color: cardMouse.containsMouse ? win.app.alpha(win.ui.foreground, 0.04) : "transparent"
@@ -604,6 +611,7 @@ PanelWindow {
                     Rectangle {
                       anchors.fill: parent
                       visible: thumb.status !== Image.Ready
+                      radius: win.ui.corner
                       color: win.ui.surface
                       Text {
                         anchors.centerIn: parent
@@ -730,6 +738,7 @@ PanelWindow {
                 Rectangle {
                   anchors.fill: parent
                   visible: big.status !== Image.Ready
+                  radius: win.ui.corner
                   color: win.ui.surface
                 }
                 Image {
@@ -904,6 +913,7 @@ PanelWindow {
                 model: page.e.commands || []
                 delegate: Rectangle {
                   id: code
+                  radius: win.ui.corner
                   required property string modelData
                   width: pageColumn.width
                   height: codeText.implicitHeight + 12 * win.dp
@@ -939,6 +949,7 @@ PanelWindow {
 
       Rectangle {
         id: dialog
+        radius: win.ui.corner
         anchors.centerIn: parent
         width: Math.min(parent.width - 48 * win.dp, 480 * win.dp)
         height: dialogColumn.height + 40 * win.dp
@@ -985,6 +996,7 @@ PanelWindow {
   // A terminal-style `[ label ]` button.
   component Bracket: Rectangle {
     id: bracket
+    radius: bracket.ui.corner
     required property StoreUi ui
     property string label: ""
     property color tint: bracket.ui.accent
@@ -1019,6 +1031,7 @@ PanelWindow {
   // Beside the name of one added to the store in the last few days.
   component NewBadge: Rectangle {
     id: newBadge
+    radius: newBadge.ui.corner
     required property StoreUi ui
     width: newText.implicitWidth + 10 * newBadge.ui.dp + 2 * border.width
     height: newText.implicitHeight + 2 * newBadge.ui.dp + 2 * border.width

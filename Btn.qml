@@ -17,6 +17,7 @@ Rectangle {
 
   implicitWidth: label.implicitWidth + 24
   implicitHeight: 28
+  radius: root.app.corner
   color: root.primary ? (mouse.containsMouse ? Qt.lighter(root.accent, 1.1) : root.accent)
     : mouse.containsMouse ? root.app.alpha(root.fg, 0.08) : "transparent"
   border.width: 1
