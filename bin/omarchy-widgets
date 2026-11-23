@@ -127,16 +127,108 @@ widget_name() {
 
 meta_field() { { grep -o "$2:[[:space:]]*\"[^\"]*\"" "$1" || true; } | head -1 | sed 's/.*"\(.*\)"/\1/'; }
 
-# Packages a widget's `requires { pacman: [...] }` lists.
+# A pacman package name, as the runtime takes one (Owl.js's MANAGERS): never
+# an option, never a path.
+PACKAGE_NAME='^[a-z0-9@_+][a-z0-9@._+-]*$'
+
+# Packages a widget's `requires { pacman: [...] }` lists, one a line, read the
+# way the runtime reads the file: a requires block in a comment or a string is
+# none, and the list holds plain string literals that are package names, or
+# the file is refused.
 requires_of() {
-  tr '\n' ' ' <"$1" | grep -o 'requires[[:space:]]*{[^}]*}' | grep -o 'pacman:[[:space:]]*\[[^]]*\]' |
-    grep -o '"[^"]*"' | tr -d '"' || true
+  need perl
+  perl - "$1" "$PACKAGE_NAME" <<'PERL'
+use strict;
+use warnings;
+my ($file, $name) = @ARGV;
+sub refuse { print STDERR "omarchy-widgets: $file: $_[0]\n"; exit 1 }
+open my $fh, '<', $file or refuse("can't read it");
+my $src = do { local $/; <$fh> };
+my $n = length $src;
+my ($i, $code, @lit) = (0, '');
+# A string's place in $code: \x01<index>\x01; the literal, or undef where it
+# isn't plain text (escapes, ${...}, a """ string).
+sub lit { push @lit, $_[0]; $code .= "\x01$#lit\x01" }
+sub brace {
+  my ($j, $depth) = ($_[0], 0);
+  for (; $j < $n; $j++) {
+    my $c = substr $src, $j, 1;
+    refuse('unterminated ${') if $c eq "\n";
+    if ($c eq '"' || $c eq "'") {
+      for ($j++; $j < $n && substr($src, $j, 1) ne $c; $j++) { $j++ if substr($src, $j, 1) eq '\\' }
+    } elsif ($c eq '{') { $depth++ }
+    elsif ($c eq '}') { return $j if $depth == 0; $depth-- }
+  }
+  refuse('unterminated ${');
+}
+while ($i < $n) {
+  my $c = substr $src, $i, 1;
+  if (substr($src, $i, 2) eq '//') {
+    my $e = index $src, "\n", $i;
+    $i = $e < 0 ? $n : $e;
+    $code .= ' ';
+  } elsif (substr($src, $i, 2) eq '/*') {
+    my $e = index $src, '*/', $i + 2;
+    refuse('unterminated comment') if $e < 0;
+    $i = $e + 2;
+    $code .= ' ';
+  } elsif (substr($src, $i, 3) eq '"""') {
+    my $e = index $src, '"""', $i + 3;
+    refuse('unterminated """ string') if $e < 0;
+    $i = $e + 3;
+    lit(undef);
+  } elsif ($c eq '"' || $c eq "'") {
+    my ($buf, $plain) = ('', 1);
+    for ($i++; ; ) {
+      refuse('unterminated string') if $i >= $n || ($c eq '"' && substr($src, $i, 1) eq "\n");
+      my $d = substr $src, $i, 1;
+      if ($d eq $c) { $i++; last }
+      if ($d eq '\\') { $plain = 0; $i += 2; next }
+      if ($c eq '"' && $d eq '$' && substr($src, $i + 1, 1) eq '{') { $plain = 0; $i = brace($i + 2) + 1; next }
+      $buf .= $d;
+      $i++;
+    }
+    lit($plain ? $buf : undef);
+  } else {
+    $code .= $c;
+    $i++;
+  }
+}
+for my $block ($code =~ /\brequires\s*\{([^}]*)\}/g) {
+  for my $list ($block =~ /\bpacman\s*:\s*\[([^\]]*)\]/g) {
+    for my $item (split /,/, $list) {
+      next if $item =~ /^\s*$/;
+      $item =~ /^\s*\x01(\d+)\x01\s*$/ or refuse('requires { pacman: [...] } holds something other than package names');
+      my $p = $lit[$1];
+      defined $p && $p =~ /$name/ or refuse('requires { pacman: [...] } holds something other than package names');
+      print "$p\n";
+    }
+  }
+}
+PERL
 }
 
+# The packages of those given that aren't installed, one a line. Each must be
+# a package name, and so is each pacman answers with: nothing here can become
+# one of pacman's options.
 missing_packages() {
+  local p out
+  for p in "$@"; do [[ $p =~ $PACKAGE_NAME ]] || die "not a package name: ${p@Q}"; done
   (($# == 0)) && return 0
   command -v pacman >/dev/null 2>&1 || { printf '%s\n' "$@"; return 0; }
-  pacman -T "$@" 2>/dev/null || true
+  out=$(pacman -T -- "$@" 2>/dev/null) || true
+  [[ -n $out ]] || return 0
+  while IFS= read -r p; do
+    [[ $p =~ $PACKAGE_NAME ]] || die "pacman answered with something that isn't a package name: ${p@Q}"
+    printf '%s\n' "$p"
+  done <<<"$out"
+}
+
+# A list, one a line, as an array's elements: lines <name> <text>.
+lines_into() {
+  local -n into=$1
+  into=()
+  [[ -z $2 ]] || mapfile -t into <<<"$2"
 }
 
 cmd_open() {
@@ -162,6 +254,8 @@ cmd_install() {
   sha=$(jq -r .sha256 <<<"$entry")
   [[ $path =~ ^$KEY/[a-z0-9/-]+\.owl$ ]] || die "the store lists an odd path for $id: $path"
   [[ -z $approved || $approved == "$sha" ]] || die "$id changed in the store since you read it; read it again before you install"
+  jq -e --arg re "$PACKAGE_NAME" '(.requires.pacman // []) | type == "array" and all(type == "string" and test($re))' \
+    <<<"$entry" >/dev/null || die "the store lists odd packages for $id"
 
   if ! ((yes)); then
     echo "$id $version: $(jq -r .description <<<"$entry")"
@@ -191,9 +285,11 @@ cmd_install() {
     '.[$id] = { file: $file, version: $e.version, sha256: $e.sha256, commands: ($e.commands // []), requires: ($e.requires // {}) }' | save_records
 
   echo "installed $DIR/$file"
-  local missing
-  missing=$(missing_packages $(jq -r '.requires.pacman[]?' <<<"$entry"))
-  [[ -z $missing ]] || echo "needs packages: $(echo $missing)  (omarchy-widgets packages $DIR/$file)"
+  local out wanted missing
+  lines_into wanted "$(jq -r '.requires.pacman[]?' <<<"$entry")"
+  out=$(missing_packages "${wanted[@]+"${wanted[@]}"}") || exit 1
+  lines_into missing "$out"
+  ((${#missing[@]} == 0)) || echo "needs packages: ${missing[*]}  (omarchy-widgets packages $DIR/$file)"
 }
 
 # The widgets a new board starts with, shipped in starter/ (tools/sync-starter
@@ -250,17 +346,20 @@ cmd_remove() {
 cmd_packages() {
   (($# == 1)) || usage
   [[ -f $1 ]] || die "no such file: $1"
-  local missing
-  missing=$(missing_packages $(requires_of "$1"))
-  if [[ -z $missing ]]; then
+  local out wanted missing
+  out=$(requires_of "$1") || exit 1
+  lines_into wanted "$out"
+  out=$(missing_packages "${wanted[@]+"${wanted[@]}"}") || exit 1
+  lines_into missing "$out"
+  if ((${#missing[@]} == 0)); then
     echo "everything $(basename "$1") needs is installed"
     return 0
   fi
   need pacman
-  echo "$(basename "$1") needs: $(echo $missing)"
+  echo "$(basename "$1") needs: ${missing[*]}"
   confirm "Install them with sudo pacman?" || exit 1
-  # shellcheck disable=SC2086
-  sudo pacman -S --needed $missing
+  # Each one a package name (missing_packages checks), after -- all the same.
+  sudo pacman -S --needed -- "${missing[@]}"
 }
 
 # Omarchy's default agent, in a terminal of its own in the widgets folder,
@@ -527,7 +626,8 @@ instead with the same title and the widget's file in a code block, and give me i
   echo "pushes the widget to a branch there, and opens a pull request."
   echo "Everything in the file becomes public: no tokens, personal paths or home location."
   local packages
-  packages=$(requires_of "$file" | tr '\n' ' ')
+  packages=$(requires_of "$file") || exit 1
+  packages=${packages//$'\n'/ }
   [[ -n $packages ]] && echo "It declares packages: $packages"
   echo
   confirm "Open the pull request?" || exit 1

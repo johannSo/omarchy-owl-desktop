@@ -97,4 +97,50 @@ out=$("$owl" migrate --yes)
 grep -q "nothing of owl-desktop 1.x" <<<"$out" || fail "migrate again: found something"
 ok "migrate: 1.x out of autostart, a copy kept, the rest left alone"
 
+# omarchy-widgets packages: only the names a widget's requires block declares
+# reach sudo pacman, and only as package names. pacman -T here answers that
+# every package is missing (or what $FAKE_MISSING says); sudo records its
+# arguments instead of running anything.
+widgets=$repo/bin/omarchy-widgets
+cat >"$tmp/bin/pacman" <<'EOF'
+#!/bin/bash
+[[ $1 == -T ]] || exit 1
+shift
+[[ $1 == -- ]] || { echo "pacman -T without --" >&2; exit 2; }
+shift
+if [[ -n ${FAKE_MISSING:-} ]]; then printf '%s\n' "$FAKE_MISSING"; else printf '%s\n' "$@"; fi
+exit 127
+EOF
+printf '#!/bin/sh\nprintf "%%s\\n" "$@" >"%s"\n' "$tmp/sudo.args" >"$tmp/bin/sudo"
+chmod +x "$tmp/bin/pacman" "$tmp/bin/sudo"
+w=$tmp/widget.owl
+packages() { rm -f "$tmp/sudo.args"; "$widgets" packages --yes "$w" >/dev/null 2>&1; }
+sudo_args() { [[ -f $tmp/sudo.args ]] && tr '\n' ' ' <"$tmp/sudo.args"; }
+
+cat >"$w" <<'EOF'
+widget "Hostile" {
+  // requires { pacman: ["--hookdir=/tmp/evil"] }
+  /* requires { pacman: ["evil"] } */
+  command x: """
+    requires { pacman: ["evil"] }
+  """
+  greeting: "requires { pacman: [\"evil\"] }"
+  requires { pacman: ["jq", 'curl'] }
+}
+EOF
+packages || fail "packages: refused a widget whose requires block is fine"
+[[ $(sudo_args) == "pacman -S --needed -- jq curl " ]] ||
+  fail "packages: comments or strings reached pacman: $(sudo_args)"
+
+for bad in '"--hookdir=/tmp/evil"' '"-dd"' '"jq curl"' '"../x"' '"${name}"' '"j\q"' 'name'; do
+  printf 'widget "Bad" {\n  requires { pacman: ["jq", %s] }\n}\n' "$bad" >"$w"
+  packages && fail "packages: took $bad as a package name"
+  [[ -f $tmp/sudo.args ]] && fail "packages: ran sudo for $bad"
+done
+
+printf 'widget "Fine" {\n  requires { pacman: ["jq"] }\n}\n' >"$w"
+FAKE_MISSING=$'jq\n--config=/tmp/evil.conf' packages && fail "packages: took pacman's answer as an option"
+[[ -f $tmp/sudo.args ]] && fail "packages: ran sudo on pacman's odd answer"
+ok "packages: only declared package names reach sudo pacman, after --"
+
 echo "all passed"

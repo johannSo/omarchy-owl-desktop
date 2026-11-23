@@ -28,7 +28,7 @@ Item {
   // What the shell hands a service: its plugin API and this plugin's manifest.
   property var shell: null
   property var manifest: null
-  readonly property string version: plugin.manifest && plugin.manifest.version ? String(plugin.manifest.version) : "2.1.0"
+  readonly property string version: plugin.manifest && plugin.manifest.version ? String(plugin.manifest.version) : "2.1.1"
 
   // ------------------------------------------------------------ places
 

@@ -87,7 +87,7 @@ Item {
 
   function checkPackages() {
     if (!tile.packages.length) { tile.missing = []; return }
-    tile.app.run(["bash", "-c", "command -v pacman >/dev/null || exit 0; pacman -T \"$@\"; exit 0", "requires"].concat(tile.packages), function(code, out) {
+    tile.app.run(["bash", "-c", "command -v pacman >/dev/null || exit 0; pacman -T -- \"$@\"; exit 0", "requires"].concat(tile.packages), function(code, out) {
       var next = out.split("\n").map(function(l) { return l.trim() }).filter(function(l) { return l !== "" })
       if (JSON.stringify(next) !== JSON.stringify(tile.missing)) tile.missing = next
     })

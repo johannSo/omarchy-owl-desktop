@@ -14,6 +14,12 @@ can work as the phone's does:
 - `remove` moves the file to `.removed/` in the widget folder, as the phone
   does, rather than deleting it.
 - `starter/installed.json` has each starter file's SHA-256.
+- `packages` reads `requires { pacman: [...] }` the way the runtime does
+  (skipping comments and strings, plain string literals only), refuses any
+  name that isn't a pacman package name, checks `pacman -T`'s answer the same
+  way, and passes the names to `pacman -T` and `sudo pacman -S` after `--` as
+  an array, never word-split. `install` checks the store's listed packages
+  the same way. Should go upstream.
 - `open` and `toggle` open the plugin's store through the Omarchy shell
   (`omarchy-shell owl-desktop store`) rather than starting the desktop app's
   own Quickshell: a plugin must not start a second one.

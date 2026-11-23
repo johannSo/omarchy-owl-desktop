@@ -2,6 +2,16 @@
 
 The most important changes in each release.
 
+## 2.1.1 – 2026-11-23
+
+- A widget's **install** button for missing packages hands `sudo pacman` only
+  package names its `requires { pacman: [...] }` block declares. A requires
+  block in a comment or a string no longer counts, a name that isn't a pacman
+  package name (`--hookdir=…`, a path, `${…}`) refuses the file, and the names
+  pacman reports missing are checked again and passed after `--`, so none can
+  become one of pacman's options. The store's listed packages are checked the
+  same way before an install.
+
 ## 2.1.0 – 2026-11-11
 
 - Corners follow Hyprland's `decoration:rounding`, as its windows do: the
