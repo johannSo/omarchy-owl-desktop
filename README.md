@@ -1,9 +1,16 @@
 # OmaLauncher++ Desktop
 
 An [Omarchy](https://omarchy.org) shell plugin that puts the home screen of
-[OmaLauncher++](https://github.com/johannSo/omalauncher.pp) on your desktop:
-its OWL widgets over the wallpaper and under the windows, on the launcher's
-grid, framed and colored as the phone frames them, in your current theme.
+OmaLauncher++, a fork of [Omalauncher](https://github.com/SimonSchubert/omalauncher)
+by Simon Schubert, on your desktop: its OWL widgets over the wallpaper and
+under the windows, on the launcher's grid, framed and colored as the phone
+frames them, in your current theme.
+
+> **The original is Simon Schubert's.** [Simon Schubert](https://github.com/SimonSchubert)
+> created [Omalauncher](https://github.com/SimonSchubert/omalauncher), designed
+> the OWL language and built the widgets, their runtime and the store in
+> [omarchy-widgets](https://github.com/SimonSchubert/omarchy-widgets). This
+> plugin only brings his work to the desktop. A big thank you to him.
 
 The widgets are `.owl` files in `~/.config/omarchy-widgets`, drawn by the
 official [OWL runtime for Quickshell](https://github.com/SimonSchubert/omarchy-widgets/tree/main/runtimes/quickshell),
@@ -132,6 +139,19 @@ delete the old clone (`~/.local/share/owl-desktop`) afterwards.
 ## ToDo
 
 - [ ] The store's official tab: the widgets that come with OmaLauncher++.
+
+## Credits
+
+All of this rests on the work of [Simon Schubert](https://github.com/SimonSchubert):
+
+- [Omalauncher](https://github.com/SimonSchubert/omalauncher), the original
+  launcher whose home screen this plugin follows
+- the OWL language, its runtime and the widgets, in
+  [omarchy-widgets](https://github.com/SimonSchubert/omarchy-widgets)
+- the store command and the starter widgets, from
+  [omalauncher-omarchy-plugin](https://github.com/SimonSchubert/omalauncher-omarchy-plugin)
+
+Thank you, Simon.
 
 ## License
 
